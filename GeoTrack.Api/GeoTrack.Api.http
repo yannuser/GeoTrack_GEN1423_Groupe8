@@ -1,0 +1,6 @@
+@GeoTrack.Api_HostAddress = http://localhost:5288
+
+GET {{GeoTrack.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
