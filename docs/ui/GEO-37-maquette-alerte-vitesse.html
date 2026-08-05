@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEO-37 - Maquette UI Alerte Vitesse | GeoTrack</title>
+    <style>
+        /* ============================================
+           GEO-37 - MAQUETTE ALERTE VITESSE
+           GeoTrack - GEN1423 Groupe 8
+           Auteur: Sory Fofana
+           Date: 2026-08-05
+           ============================================ */
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #1a73e8;
+            --success: #34a853;
+            --warning: #f9ab00;
+            --danger: #ea4335;
+            --critical: #9c27b0;
+            --bg-dark: #1e1e2e;
+            --bg-card: #2d2d44;
+            --bg-light: #f8f9fa;
+            --text-light: #e0e0e0;
+            --text-dark: #333;
+            --border: #3d3d5c;
+            --shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+
+        /* === HEADER === */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            color: #fff;
+        }
+
+        .header h1 span {
+            color: var(--danger);
+        }
+
+        .notification-badge {
+            position: relative;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        .notification-badge .count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--danger);
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        /* === LAYOUT PRINCIPAL === */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* === CARTES === */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .card-header .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .badge-live {
+            background: var(--danger);
+            color: #fff;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* === TABLEAU DE BORD ALERTES === */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+            grid-column: 1 / -1;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        .stat-card.warning .number { color: var(--warning); }
+        .stat-card.danger .number { color: var(--danger); }
+        .stat-card.critical .number { color: var(--critical); }
+        .stat-card.success .number { color: var(--success); }
+
+        /* === LISTE DES ALERTES === */
+        .alert-list {
+            list-style: none;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .alert-item:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateX(4px);
+        }
+
+        .alert-item.severity-warning { border-left-color: var(--warning); }
+        .alert-item.severity-alert { border-left-color: var(--danger); }
+        .alert-item.severity-critical { border-left-color: var(--critical); }
+
+        .alert-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 1.2rem;
+        }
+
+        .alert-icon.warning { background: rgba(249, 171, 0, 0.2); }
+        .alert-icon.alert { background: rgba(234, 67, 53, 0.2); }
+        .alert-icon.critical { background: rgba(156, 39, 176, 0.2); }
+
+        .alert-details {
+            flex: 1;
+        }
+
+        .alert-details .device {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .alert-details .info {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 2px;
+        }
+
+        .alert-speed {
+            text-align: right;
+        }
+
+        .alert-speed .value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--danger);
+        }
+
+        .alert-speed .threshold {
+            font-size: 0.7rem;
+            color: #888;
+        }
+
+        /* === CONFIGURATION DES SEUILS === */
+        .threshold-config {
+            margin-top: 12px;
+        }
+
+        .threshold-group {
+            margin-bottom: 20px;
+        }
+
+        .threshold-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .threshold-group label .level-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .level-warning .level-badge { background: var(--warning); color: #000; }
+        .level-alert .level-badge { background: var(--danger); color: #fff; }
+        .level-critical .level-badge { background: var(--critical); color: #fff; }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            appearance: none;
+            background: #444;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .level-warning input[type="range"]::-webkit-slider-thumb { background: var(--warning); }
+        .level-alert input[type="range"]::-webkit-slider-thumb { background: var(--danger); }
+        .level-critical input[type="range"]::-webkit-slider-thumb { background: var(--critical); }
+
+        .slider-value {
+            min-width: 60px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        /* === DÉTAIL ALERTE === */
+        .alert-detail-panel {
+            grid-column: 1 / -1;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .map-placeholder {
+            background: linear-gradient(135deg, #1a3a2a 0%, #0d2818 100%);
+            border-radius: 8px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed #4a7a5a;
+        }
+
+        .map-placeholder .icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .map-placeholder .text {
+            font-size: 0.85rem;
+            color: #7ab88a;
+        }
+
+        .speed-gauge {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .gauge-circle {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 8px solid var(--border);
+            border-top-color: var(--danger);
+            border-right-color: var(--danger);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            animation: rotate-gauge 3s linear infinite;
+        }
+
+        @keyframes rotate-gauge {
+            0% { border-top-color: var(--danger); }
+            50% { border-top-color: var(--warning); }
+            100% { border-top-color: var(--danger); }
+        }
+
+        .gauge-circle .speed {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--danger);
+        }
+
+        .gauge-circle .unit {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .speed-comparison {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 12px;
+        }
+
+        .speed-comparison div {
+            text-align: center;
+        }
+
+        .speed-comparison .label {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .speed-comparison .val {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .speed-comparison .measured { color: var(--danger); }
+        .speed-comparison .threshold-val { color: var(--warning); }
+
+        /* === NOTIFICATIONS TOAST === */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 300px;
+            box-shadow: var(--shadow);
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .toast.toast-warning { border-left: 4px solid var(--warning); }
+        .toast.toast-danger { border-left: 4px solid var(--danger); }
+        .toast.toast-critical { border-left: 4px solid var(--critical); }
+
+        .toast-icon { font-size: 1.3rem; }
+        .toast-content { flex: 1; }
+        .toast-content .title { font-weight: 600; font-size: 0.85rem; }
+        .toast-content .message { font-size: 0.75rem; color: #aaa; }
+        .toast-close { cursor: pointer; color: #888; font-size: 1.2rem; }
+
+        /* === FILTRES === */
+        .filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        .filter-btn.active-warning { background: var(--warning); border-color: var(--warning); color: #000; }
+        .filter-btn.active-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+        .filter-btn.active-critical { background: var(--critical); border-color: var(--critical); color: #fff; }
+
+        /* === HISTORIQUE === */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--border);
+            color: #888;
+            font-weight: 600;
+        }
+
+        .history-table td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .severity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .severity-dot.warning { background: var(--warning); }
+        .severity-dot.alert { background: var(--danger); }
+        .severity-dot.critical { background: var(--critical); }
+
+        /* === ANTI-SPAM INDICATOR === */
+        .antispam-bar {
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+
+        .antispam-bar .title {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s;
+        }
+
+        .progress-bar .fill.low { background: var(--success); width: 30%; }
+        .progress-bar .fill.medium { background: var(--warning); width: 60%; }
+        .progress-bar .fill.high { background: var(--danger); width: 85%; }
+
+        .antispam-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        /* === FOOTER === */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <h1>🚗 GeoTrack <span>Alertes Vitesse</span></h1>
+        <div class="notification-badge">
+            🔔
+            <span class="count">7</span>
+        </div>
+    </header>
+
+    <!-- NOTIFICATIONS TOAST -->
+    <div class="toast-container">
+        <div class="toast toast-critical">
+            <span class="toast-icon">🚨</span>
+            <div class="toast-content">
+                <div class="title">CRITIQUE — Vitesse excessive</div>
+                <div class="message">Appareil GPS-003 • 92 km/h dans zone 50</div>
+            </div>
+            <span class="toast-close">×</span>
+        </div>
+        <div class="toast toast-warning">
+            <span class="toast-icon">⚠️</span>
+            <div class="toast-content">
+                <div class="title">Avertissement — Seuil approché</div>
+                <div class="message">Appareil GPS-001 • 53 km/h dans zone 50</div>
+            </div>
+            <span class="toast-close">×</span>
+        </div>
+    </div>
+
+    <!-- STATISTIQUES GLOBALES -->
+    <div class="main-container">
+        <div class="stats-row">
+            <div class="stat-card warning">
+                <span class="number">12</span>
+                <span class="label">Avertissements</span>
+            </div>
+            <div class="stat-card danger">
+                <span class="number">5</span>
+                <span class="label">Alertes</span>
+            </div>
+            <div class="stat-card critical">
+                <span class="number">2</span>
+                <span class="label">Critiques</span>
+            </div>
+            <div class="stat-card success">
+                <span class="number">94%</span>
+                <span class="label">Conformité</span>
+            </div>
+        </div>
+
+        <!-- LISTE DES ALERTES EN TEMPS RÉEL -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📋 Alertes en temps réel</h2>
+                <span class="badge badge-live">● LIVE</span>
+            </div>
+
+            <div class="filters">
+                <button class="filter-btn active">Toutes</button>
+                <button class="filter-btn active-warning">⚠️ Avertissement</button>
+                <button class="filter-btn active-danger">🔴 Alerte</button>
+                <button class="filter-btn active-critical">🟣 Critique</button>
+            </div>
+
+            <ul class="alert-list">
+                <li class="alert-item severity-critical">
+                    <div class="alert-icon critical">🚨</div>
+                    <div class="alert-details">
+                        <div class="device">GPS-003 — Véhicule Livraison</div>
+                        <div class="info">Zone: Campus UQO • il y a 2 min</div>
+                    </div>
+                    <div class="alert-speed">
+                        <div class="value">92 km/h</div>
+                        <div class="threshold">Seuil: 50 km/h</div>
+                    </div>
+                </li>
+                <li class="alert-item severity-alert">
+                    <div class="alert-icon alert">🔴</div>
+                    <div class="alert-details">
+                        <div class="device">GPS-001 — Sory Fofana</div>
+                        <div class="info">Zone: Rue Alexandre-Taché • il y a 8 min</div>
+                    </div>
+                    <div class="alert-speed">
+                        <div class="value">67 km/h</div>
+                        <div class="threshold">Seuil: 50 km/h</div>
+                    </div>
+                </li>
+                <li class="alert-item severity-warning">
+                    <div class="alert-icon warning">⚠️</div>
+                    <div class="alert-details">
+                        <div class="device">GPS-005 — Florian Hien</div>
+                        <div class="info">Zone: Stationnement P3 • il y a 15 min</div>
+                    </div>
+                    <div class="alert-speed">
+                        <div class="value">53 km/h</div>
+                        <div class="threshold">Seuil: 50 km/h</div>
+                    </div>
+                </li>
+                <li class="alert-item severity-alert">
+                    <div class="alert-icon alert">🔴</div>
+                    <div class="alert-details">
+                        <div class="device">GPS-002 — Transport Équipe</div>
+                        <div class="info">Zone: Boulevard Maisonneuve • il y a 22 min</div>
+                    </div>
+                    <div class="alert-speed">
+                        <div class="value">71 km/h</div>
+                        <div class="threshold">Seuil: 60 km/h</div>
+                    </div>
+                </li>
+                <li class="alert-item severity-warning">
+                    <div class="alert-icon warning">⚠️</div>
+                    <div class="alert-details">
+                        <div class="device">GPS-004 — Maintenance</div>
+                        <div class="info">Zone: Parking Est • il y a 35 min</div>
+                    </div>
+                    <div class="alert-speed">
+                        <div class="value">56 km/h</div>
+                        <div class="threshold">Seuil: 50 km/h</div>
+                    </div>
+                </li>
+            </ul>
+
+            <!-- ANTI-SPAM INDICATOR -->
+            <div class="antispam-bar">
+                <div class="title">🛡️ Anti-spam — Quota horaire (3/10 alertes utilisées)</div>
+                <div class="progress-bar">
+                    <div class="fill low"></div>
+                </div>
+                <div class="antispam-stats">
+                    <span>Cooldown: 5 min entre alertes</span>
+                    <span>Prochain reset: 47 min</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONFIGURATION DES SEUILS -->
+        <div class="card">
+            <div class="card-header">
+                <h2>⚙️ Configuration des seuils</h2>
+                <span class="badge" style="background: var(--primary); color: #fff;">Zone active</span>
+            </div>
+
+            <div class="threshold-config">
+                <div class="threshold-group level-warning">
+                    <label>
+                        Avertissement
+                        <span class="level-badge">NIVEAU 1</span>
+                    </label>
+                    <div class="slider-container">
+                        <span>30</span>
+                        <input type="range" min="30" max="120" value="55" id="warning-slider">
+                        <span class="slider-value" id="warning-value">55 km/h</span>
+                    </div>
+                </div>
+
+                <div class="threshold-group level-alert">
+                    <label>
+                        Alerte confirmée
+                        <span class="level-badge">NIVEAU 2</span>
+                    </label>
+                    <div class="slider-container">
+                        <span>30</span>
+                        <input type="range" min="30" max="120" value="50" id="alert-slider">
+                        <span class="slider-value" id="alert-value">50 km/h</span>
+                    </div>
+                </div>
+
+                <div class="threshold-group level-critical">
+                    <label>
+                        Critique
+                        <span class="level-badge">NIVEAU 3</span>
+                    </label>
+                    <div class="slider-container">
+                        <span>30</span>
+                        <input type="range" min="30" max="150" value="75" id="critical-slider">
+                        <span class="slider-value" id="critical-value">75 km/h</span>
+                    </div>
+                </div>
+
+                <p style="margin-top: 16px; font-size: 0.8rem; color: #888;">
+                    📐 Tolérance GPS: ±3 km/h | 📊 Échantillons consécutifs: 3 | ⏱️ Durée minimum: 5 sec
+                </p>
+            </div>
+        </div>
+
+        <!-- DÉTAIL D'UNE ALERTE -->
+        <div class="card alert-detail-panel">
+            <div class="card-header">
+                <h2>🔍 Détail — Alerte GPS-003</h2>
+                <span class="badge" style="background: var(--critical); color: #fff;">CRITIQUE</span>
+            </div>
+
+            <div class="detail-grid">
+                <div class="map-placeholder">
+                    <span class="icon">🗺️</span>
+                    <span class="text">Carte GPS — Position de l'alerte</span>
+                    <span class="text" style="font-size: 0.75rem; margin-top: 4px;">
+                        📍 45.4765° N, 75.7813° W (Campus UQO)
+                    </span>
+                </div>
+
+                <div class="speed-gauge">
+                    <div class="gauge-circle">
+                        <span class="speed">92</span>
+                        <span class="unit">km/h</span>
+                    </div>
+                    <div class="speed-comparison">
+                        <div>
+                            <div class="val measured">92 km/h</div>
+                            <div class="label">Mesurée</div>
+                        </div>
+                        <div>
+                            <div class="val threshold-val">50 km/h</div>
+                            <div class="label">Seuil</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORIQUE -->
+            <h3 style="margin: 20px 0 12px; font-size: 0.95rem;">📜 Historique des alertes — GPS-003</h3>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Heure</th>
+                        <th>Sévérité</th>
+                        <th>Vitesse</th>
+                        <th>Zone</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>13:01</td>
+                        <td><span class="severity-dot critical"></span>Critique</td>
+                        <td>92 km/h</td>
+                        <td>Campus UQO</td>
+                        <td>🔴 Active</td>
+                    </tr>
+                    <tr>
+                        <td>12:48</td>
+                        <td><span class="severity-dot alert"></span>Alerte</td>
+                        <td>68 km/h</td>
+                        <td>Rue Alexandre-Taché</td>
+                        <td>✅ Résolue</td>
+                    </tr>
+                    <tr>
+                        <td>12:30</td>
+                        <td><span class="severity-dot warning"></span>Avertissement</td>
+                        <td>54 km/h</td>
+                        <td>Boulevard Maisonneuve</td>
+                        <td>✅ Résolue</td>
+                    </tr>
+                    <tr>
+                        <td>11:45</td>
+                        <td><span class="severity-dot warning"></span>Avertissement</td>
+                        <td>52 km/h</td>
+                        <td>Parking P3</td>
+                        <td>⏸️ Anti-spam</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        GEO-37 | GeoTrack — GEN1423 Groupe 8 | Sory Fofana | 2026-08-05
+        <br>Maquette UI — Alerte Vitesse (Tableau de bord, Configuration, Détail, Notifications)
+    </footer>
+
+    <!-- SCRIPTS INTERACTIFS -->
+    <script>
+        // Mise à jour dynamique des sliders
+        document.getElementById('warning-slider').addEventListener('input', function() {
+            document.getElementById('warning-value').textContent = this.value + ' km/h';
+        });
+        document.getElementById('alert-slider').addEventListener('input', function() {
+            document.getElementById('alert-value').textContent = this.value + ' km/h';
+        });
+        document.getElementById('critical-slider').addEventListener('input', function() {
+            document.getElementById('critical-value').textContent = this.value + ' km/h';
+        });
+
+        // Fermer les toasts
+        document.querySelectorAll('.toast-close').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.parentElement.style.display = 'none';
+            });
+        });
+
+        // Filtres actifs
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+
+</body>
+</html>
