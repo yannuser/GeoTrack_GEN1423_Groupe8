@@ -98,8 +98,12 @@ namespace GeoTrack.Api.Services.Resilience
         public ComposantSysteme Composant { get; set; }
         public EtatCircuitBreaker Etat { get; set; } = EtatCircuitBreaker.Ferme;
         public int EchecsConsecutifs { get; set; } = 0;
-        public int TotalEchecs { get; set; } = 0;
-        public int TotalSucces { get; set; } = 0;
+
+        // Champs (et non proprietes) : Interlocked.Increment exige une variable
+        // adressable, ce qu'une propriete auto-implementee ne fournit pas (CS0206).
+        public int TotalEchecs = 0;
+        public int TotalSucces = 0;
+
         public DateTime? DernierEchec { get; set; }
         public DateTime? DernierSucces { get; set; }
         public DateTime? OuvertDepuis { get; set; }
@@ -151,11 +155,14 @@ namespace GeoTrack.Api.Services.Resilience
     public class MetriquesResilience
     {
         public ComposantSysteme Composant { get; set; }
-        public long TotalRequetes { get; set; }
-        public long RequetesReussies { get; set; }
-        public long RequetesEchouees { get; set; }
-        public long RequetesRetry { get; set; }
-        public long RequetesFailover { get; set; }
+        // Champs (et non proprietes) : Interlocked.Increment exige une variable
+        // adressable, ce qu'une propriete auto-implementee ne fournit pas (CS0206).
+        public long TotalRequetes;
+        public long RequetesReussies;
+        public long RequetesEchouees;
+        public long RequetesRetry;
+        public long RequetesFailover;
+
         public double TauxErreur => TotalRequetes > 0 ? (double)RequetesEchouees / TotalRequetes * 100 : 0;
         public double TauxSucces => TotalRequetes > 0 ? (double)RequetesReussies / TotalRequetes * 100 : 0;
         public TimeSpan LatenceMoyenne { get; set; }
