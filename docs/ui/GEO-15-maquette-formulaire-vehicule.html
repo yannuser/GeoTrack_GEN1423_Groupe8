@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEO-15 - Formulaire Ajout Véhicule | GeoTrack</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header .breadcrumb { font-size: 13px; opacity: 0.85; }
+
+        /* Layout */
+        .container {
+            max-width: 900px;
+            margin: 32px auto;
+            padding: 0 24px;
+        }
+
+        /* Card formulaire */
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 32px;
+        }
+        .form-card h2 {
+            font-size: 22px;
+            color: #1a73e8;
+            margin-bottom: 8px;
+        }
+        .form-card .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        /* Sections */
+        .form-section {
+            margin-bottom: 28px;
+        }
+        .form-section h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e3f2fd;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-section h3 .icon {
+            width: 24px;
+            height: 24px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        /* Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-grid.single { grid-template-columns: 1fr; }
+
+        /* Champs */
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+        .field label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 6px;
+        }
+        .field label .required {
+            color: #d32f2f;
+            margin-left: 2px;
+        }
+        .field label .optional {
+            color: #999;
+            font-weight: 400;
+            font-size: 11px;
+        }
+        .field input,
+        .field select,
+        .field textarea {
+            padding: 10px 14px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #fafafa;
+        }
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
+            background: white;
+        }
+        .field input.error { border-color: #d32f2f; }
+        .field .hint {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+        }
+        .field .error-msg {
+            font-size: 11px;
+            color: #d32f2f;
+            margin-top: 4px;
+            display: none;
+        }
+
+        /* Toggle GPS */
+        .gps-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #fff3e0;
+            border-radius: 8px;
+            border: 1px solid #ffe0b2;
+            margin-top: 8px;
+        }
+        .gps-status.active {
+            background: #e8f5e9;
+            border-color: #c8e6c9;
+        }
+        .gps-status .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff9800;
+            animation: pulse 2s infinite;
+        }
+        .gps-status.active .dot { background: #4caf50; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Boutons */
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #1a73e8;
+            color: white;
+        }
+        .btn-primary:hover { background: #1557b0; transform: translateY(-1px); }
+        .btn-secondary {
+            background: white;
+            color: #666;
+            border: 1.5px solid #ddd;
+        }
+        .btn-secondary:hover { border-color: #999; }
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        .btn-success:hover { background: #388e3c; }
+
+        /* Modal succès */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            max-width: 420px;
+            width: 90%;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .modal .success-icon {
+            width: 64px;
+            height: 64px;
+            background: #e8f5e9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 32px;
+        }
+        .modal h3 { font-size: 20px; color: #333; margin-bottom: 8px; }
+        .modal p { color: #666; font-size: 14px; margin-bottom: 24px; }
+
+        /* Mini carte */
+        .mini-map {
+            width: 100%;
+            height: 200px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            border: 1px solid #c8e6c9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4caf50;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .form-actions { flex-direction: column; gap: 12px; }
+            .container { padding: 0 16px; }
+            .form-card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+    <div>
+        <div class="breadcrumb">GeoTrack &gt; Flotte &gt; Ajouter un véhicule</div>
+        <h1>➕ Ajouter un véhicule</h1>
+    </div>
+</div>
+
+<!-- Formulaire -->
+<div class="container">
+    <div class="form-card">
+        <h2>Nouveau véhicule</h2>
+        <p class="subtitle">Remplissez les informations pour ajouter un véhicule à la flotte. Les champs marqués <span style="color:#d32f2f">*</span> sont obligatoires.</p>
+
+        <form id="formVehicule" onsubmit="return submitForm(event)">
+
+            <!-- Section 1 : Identification -->
+            <div class="form-section">
+                <h3><span class="icon">🚗</span> Identification du véhicule</h3>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>Immatriculation <span class="required">*</span></label>
+                        <input type="text" id="immatriculation" placeholder="ABC 1234" maxlength="10" required>
+                        <span class="hint">Format : lettres + chiffres, max 10 caractères</span>
+                        <span class="error-msg" id="err-immat">Cette immatriculation existe déjà</span>
+                    </div>
+                    <div class="field">
+                        <label>Numéro VIN <span class="optional">(optionnel)</span></label>
+                        <input type="text" id="vin" placeholder="1HGBH41JXMN109186" maxlength="17">
+                        <span class="hint">17 caractères alphanumériques</span>
+                    </div>
+                    <div class="field">
+                        <label>Marque <span class="required">*</span></label>
+                        <select id="marque" required>
+                            <option value="">-- Sélectionner --</option>
+                            <option>Toyota</option>
+                            <option>Ford</option>
+                            <option>Chevrolet</option>
+                            <option>Honda</option>
+                            <option>Hyundai</option>
+                            <option>RAM</option>
+                            <option>GMC</option>
+                            <option>Autre</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Modèle <span class="required">*</span></label>
+                        <input type="text" id="modele" placeholder="Corolla, F-150..." required>
+                    </div>
+                    <div class="field">
+                        <label>Année <span class="required">*</span></label>
+                        <input type="number" id="annee" min="2000" max="2027" placeholder="2024" required>
+                    </div>
+                    <div class="field">
+                        <label>Type de véhicule <span class="required">*</span></label>
+                        <select id="typeVehicule" required>
+                            <option value="">-- Sélectionner --</option>
+                            <option value="berline">Berline</option>
+                            <option value="suv">SUV</option>
+                            <option value="camion">Camion</option>
+                            <option value="fourgonnette">Fourgonnette</option>
+                            <option value="utilitaire">Utilitaire</option>
+                            <option value="moto">Moto</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2 : Tracker GPS -->
+            <div class="form-section">
+                <h3><span class="icon">📡</span> Tracker GPS</h3>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>ID Tracker GPS <span class="required">*</span></label>
+                        <input type="text" id="trackerId" placeholder="TRK-00001" required>
+                        <span class="hint">Identifiant unique du boîtier GPS installé</span>
+                        <span class="error-msg" id="err-tracker">Ce tracker est déjà assigné</span>
+                    </div>
+                    <div class="field">
+                        <label>Fournisseur GPS</label>
+                        <select id="fournisseurGps">
+                            <option value="">-- Sélectionner --</option>
+                            <option>Geotab</option>
+                            <option>CalAmp</option>
+                            <option>Queclink</option>
+                            <option>Teltonika</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="gps-status" id="gpsStatus">
+                    <div class="dot"></div>
+                    <span>En attente de la première position GPS...</span>
+                </div>
+            </div>
+
+            <!-- Section 3 : Affectation -->
+            <div class="form-section">
+                <h3><span class="icon">👤</span> Affectation</h3>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>Conducteur assigné <span class="optional">(optionnel)</span></label>
+                        <select id="conducteur">
+                            <option value="">-- Aucun pour l'instant --</option>
+                            <option>Jean Tremblay</option>
+                            <option>Marie Côté</option>
+                            <option>Pierre Lavoie</option>
+                            <option>Sophie Gagné</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Groupe / Division <span class="optional">(optionnel)</span></label>
+                        <select id="groupe">
+                            <option value="">-- Aucun --</option>
+                            <option>Livraison Nord</option>
+                            <option>Livraison Sud</option>
+                            <option>Service technique</option>
+                            <option>Direction</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4 : Seuils alerte -->
+            <div class="form-section">
+                <h3><span class="icon">⚠️</span> Seuils d'alerte vitesse</h3>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>Vitesse max autorisée (km/h)</label>
+                        <input type="number" id="vitesseMax" value="120" min="30" max="200">
+                        <span class="hint">Défaut : 120 km/h (intégration GEO-10)</span>
+                    </div>
+                    <div class="field">
+                        <label>Zone géographique par défaut</label>
+                        <select id="zoneDefaut">
+                            <option value="">-- Aucune restriction --</option>
+                            <option>Zone Centre-Ville</option>
+                            <option>Zone Industrielle</option>
+                            <option>Zone Résidentielle</option>
+                            <option>Zone Autoroute</option>
+                        </select>
+                        <span class="hint">Intégration GEO-9</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5 : Notes -->
+            <div class="form-section">
+                <h3><span class="icon">📝</span> Notes</h3>
+                <div class="form-grid single">
+                    <div class="field">
+                        <label>Remarques <span class="optional">(optionnel)</span></label>
+                        <textarea id="notes" rows="3" placeholder="Informations supplémentaires..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Boutons -->
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">Annuler</button>
+                <div style="display:flex; gap:12px;">
+                    <button type="button" class="btn btn-secondary" onclick="validateForm()">Valider les champs</button>
+                    <button type="submit" class="btn btn-primary">Ajouter le véhicule</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Mini carte preview -->
+        <div class="mini-map" id="miniMap">
+            <span>🗺️ Le véhicule apparaîtra ici dès la 1ère position GPS reçue</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modal succès -->
+<div class="modal-overlay" id="modalSuccess">
+    <div class="modal">
+        <div class="success-icon">✅</div>
+        <h3>Véhicule ajouté !</h3>
+        <p id="modalMsg">Le véhicule <strong>ABC 1234</strong> a été ajouté à la flotte. Il apparaîtra sur la carte dès la réception de sa première position GPS.</p>
+        <button class="btn btn-success" onclick="closeModal()">Voir sur la carte</button>
+    </div>
+</div>
+
+<script>
+    // Validation formulaire
+    function validateForm() {
+        let valid = true;
+        const immat = document.getElementById('immatriculation');
+        const tracker = document.getElementById('trackerId');
+
+        // Reset erreurs
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        document.querySelectorAll('input.error').forEach(e => e.classList.remove('error'));
+
+        // Vérification immatriculation (simulation doublon)
+        if (immat.value.toUpperCase() === 'TEST 0001') {
+            immat.classList.add('error');
+            document.getElementById('err-immat').style.display = 'block';
+            valid = false;
+        }
+
+        // Vérification tracker (simulation doublon)
+        if (tracker.value.toUpperCase() === 'TRK-99999') {
+            tracker.classList.add('error');
+            document.getElementById('err-tracker').style.display = 'block';
+            valid = false;
+        }
+
+        if (valid) {
+            alert('✅ Tous les champs sont valides !');
+        }
+        return valid;
+    }
+
+    // Soumission
+    function submitForm(event) {
+        event.preventDefault();
+        if (!validateForm()) return false;
+
+        const immat = document.getElementById('immatriculation').value;
+        document.getElementById('modalMsg').innerHTML =
+            `Le véhicule <strong>${immat}</strong> a été ajouté à la flotte. Il apparaîtra sur la carte dès la réception de sa première position GPS.`;
+        document.getElementById('modalSuccess').classList.add('active');
+
+        // Simuler réception GPS après 3 secondes
+        setTimeout(() => {
+            const gps = document.getElementById('gpsStatus');
+            gps.classList.add('active');
+            gps.innerHTML = '<div class="dot"></div><span>✅ Position GPS reçue — Véhicule visible sur la carte !</span>';
+            document.getElementById('miniMap').innerHTML = '<span>📍 Véhicule localisé : 45.4826° N, 75.7856° W (Gatineau)</span>';
+            document.getElementById('miniMap').style.background = '#c8e6c9';
+        }, 3000);
+
+        return false;
+    }
+
+    // Reset
+    function resetForm() {
+        document.getElementById('formVehicule').reset();
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        document.querySelectorAll('input.error').forEach(e => e.classList.remove('error'));
+    }
+
+    // Fermer modal
+    function closeModal() {
+        document.getElementById('modalSuccess').classList.remove('active');
+    }
+</script>
+
+</body>
+</html>
