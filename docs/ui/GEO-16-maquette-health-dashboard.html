@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEO-16 - Health Dashboard / Monitoring Système</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f1923; color: #e1e8ed; min-height: 100vh; }
+        
+        .header { background: #1a2733; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2d3e4f; }
+        .header h1 { font-size: 20px; color: #fff; }
+        .header .status-global { display: flex; align-items: center; gap: 8px; }
+        .header .status-global .dot { width: 12px; height: 12px; border-radius: 50%; animation: pulse 2s infinite; }
+        .header .status-global .dot.healthy { background: #00c853; }
+        .header .status-global .dot.degraded { background: #ffd600; }
+        .header .status-global .dot.critical { background: #ff1744; }
+        .header .uptime { font-size: 13px; color: #8899a6; }
+        
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        
+        /* Métriques globales */
+        .metrics-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+        .metric-card { background: #1a2733; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #2d3e4f; }
+        .metric-card .value { font-size: 28px; font-weight: bold; color: #fff; }
+        .metric-card .label { font-size: 12px; color: #8899a6; margin-top: 4px; }
+        .metric-card .value.green { color: #00c853; }
+        .metric-card .value.yellow { color: #ffd600; }
+        .metric-card .value.red { color: #ff1744; }
+        
+        /* Grille composants */
+        .components-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .component-card { background: #1a2733; border-radius: 8px; padding: 20px; border: 1px solid #2d3e4f; transition: all 0.3s; }
+        .component-card:hover { border-color: #4fc3f7; transform: translateY(-2px); }
+        .component-card.healthy { border-left: 4px solid #00c853; }
+        .component-card.degraded { border-left: 4px solid #ffd600; }
+        .component-card.critical { border-left: 4px solid #ff1744; }
+        
+        .component-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .component-name { font-size: 14px; font-weight: 600; }
+        .component-status { font-size: 11px; padding: 3px 8px; border-radius: 12px; font-weight: 500; }
+        .component-status.healthy { background: rgba(0, 200, 83, 0.15); color: #00c853; }
+        .component-status.degraded { background: rgba(255, 214, 0, 0.15); color: #ffd600; }
+        .component-status.critical { background: rgba(255, 23, 68, 0.15); color: #ff1744; }
+        .component-status.circuit-open { background: rgba(255, 23, 68, 0.15); color: #ff1744; }
+        
+        .component-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+        .component-metric { font-size: 12px; }
+        .component-metric .label { color: #8899a6; }
+        .component-metric .val { color: #fff; font-weight: 500; }
+        
+        /* Circuit Breaker Status */
+        .circuit-section { margin-bottom: 24px; }
+        .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .section-title .icon { font-size: 18px; }
+        
+        .circuit-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        .circuit-card { background: #1a2733; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #2d3e4f; }
+        .circuit-card .name { font-size: 11px; color: #8899a6; margin-bottom: 6px; }
+        .circuit-card .state { font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
+        .circuit-card .state.closed { background: rgba(0, 200, 83, 0.15); color: #00c853; }
+        .circuit-card .state.half-open { background: rgba(255, 214, 0, 0.15); color: #ffd600; }
+        .circuit-card .state.open { background: rgba(255, 23, 68, 0.15); color: #ff1744; }
+        .circuit-card .failures { font-size: 10px; color: #8899a6; margin-top: 4px; }
+        
+        /* Timeline incidents */
+        .timeline-section { background: #1a2733; border-radius: 8px; padding: 20px; border: 1px solid #2d3e4f; margin-bottom: 24px; }
+        .timeline-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #2d3e4f; }
+        .timeline-item:last-child { border-bottom: none; }
+        .timeline-time { font-size: 11px; color: #8899a6; min-width: 60px; }
+        .timeline-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+        .timeline-dot.recovery { background: #00c853; }
+        .timeline-dot.failover { background: #ffd600; }
+        .timeline-dot.failure { background: #ff1744; }
+        .timeline-content { flex: 1; }
+        .timeline-content .title { font-size: 13px; font-weight: 500; }
+        .timeline-content .desc { font-size: 11px; color: #8899a6; margin-top: 2px; }
+        
+        /* Runbook actions */
+        .runbook-section { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .runbook-card { background: #1a2733; border-radius: 8px; padding: 16px; border: 1px solid #2d3e4f; }
+        .runbook-card h4 { font-size: 13px; margin-bottom: 8px; color: #4fc3f7; }
+        .runbook-card .steps { list-style: none; }
+        .runbook-card .steps li { font-size: 12px; padding: 4px 0; color: #b0bec5; display: flex; align-items: center; gap: 6px; }
+        .runbook-card .steps li::before { content: "→"; color: #4fc3f7; }
+        
+        /* Boutons actions */
+        .actions-bar { display: flex; gap: 12px; margin-bottom: 24px; }
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; font-weight: 500; transition: all 0.2s; }
+        .btn-primary { background: #1976d2; color: #fff; }
+        .btn-primary:hover { background: #1565c0; }
+        .btn-warning { background: #f57c00; color: #fff; }
+        .btn-warning:hover { background: #e65100; }
+        .btn-danger { background: #d32f2f; color: #fff; }
+        .btn-danger:hover { background: #b71c1c; }
+        .btn-outline { background: transparent; border: 1px solid #4fc3f7; color: #4fc3f7; }
+        .btn-outline:hover { background: rgba(79, 195, 247, 0.1); }
+        
+        /* Modal simulation panne */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #1a2733; border-radius: 12px; padding: 24px; width: 500px; border: 1px solid #2d3e4f; }
+        .modal h3 { margin-bottom: 16px; }
+        .modal .form-group { margin-bottom: 12px; }
+        .modal label { font-size: 12px; color: #8899a6; display: block; margin-bottom: 4px; }
+        .modal select, .modal input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #2d3e4f; background: #0f1923; color: #fff; font-size: 13px; }
+        .modal .btn-row { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+        
+        /* Toast notification */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 13px; z-index: 2000; display: none; animation: slideIn 0.3s; }
+        .toast.success { background: #00c853; color: #fff; display: block; }
+        .toast.warning { background: #ffd600; color: #000; display: block; }
+        .toast.error { background: #ff1744; color: #fff; display: block; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        
+        /* Footer */
+        .footer { text-align: center; padding: 16px; color: #546e7a; font-size: 11px; border-top: 1px solid #2d3e4f; margin-top: 24px; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div style="display:flex; align-items:center; gap:16px;">
+            <h1>🛡️ GeoTrack — Health Dashboard</h1>
+            <span class="uptime">Uptime: 99.97% (30j)</span>
+        </div>
+        <div class="status-global">
+            <div class="dot healthy" id="globalDot"></div>
+            <span id="globalStatus">Tous les systèmes opérationnels</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Métriques globales -->
+        <div class="metrics-bar">
+            <div class="metric-card">
+                <div class="value green">6/6</div>
+                <div class="label">Composants actifs</div>
+            </div>
+            <div class="metric-card">
+                <div class="value green">23ms</div>
+                <div class="label">Latence moyenne</div>
+            </div>
+            <div class="metric-card">
+                <div class="value green">0</div>
+                <div class="label">Circuit Breakers ouverts</div>
+            </div>
+            <div class="metric-card">
+                <div class="value green">99.97%</div>
+                <div class="label">Disponibilité 30j</div>
+            </div>
+            <div class="metric-card">
+                <div class="value green">0</div>
+                <div class="label">Incidents actifs</div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions-bar">
+            <button class="btn btn-primary" onclick="refreshAll()">🔄 Rafraîchir</button>
+            <button class="btn btn-warning" onclick="showSimulation()">⚡ Simuler panne</button>
+            <button class="btn btn-outline" onclick="resetAll()">↺ Réinitialiser</button>
+            <button class="btn btn-outline">📊 Exporter métriques</button>
+            <button class="btn btn-outline">📋 Voir runbook complet</button>
+        </div>
+
+        <!-- Composants -->
+        <div class="section-title"><span class="icon">🔧</span> Composants système</div>
+        <div class="components-grid">
+            <div class="component-card healthy" id="comp-api">
+                <div class="component-header">
+                    <span class="component-name">🌐 API Gateway</span>
+                    <span class="component-status healthy">Opérationnel</span>
+                </div>
+                <div class="component-metrics">
+                    <div class="component-metric"><span class="label">Latence</span><br><span class="val">18ms</span></div>
+                    <div class="component-metric"><span class="label">Req/min</span><br><span class="val">342</span></div>
+                    <div class="component-metric"><span class="label">Erreurs</span><br><span class="val">0.01%</span></div>
+                    <div class="component-metric"><span class="label">Uptime</span><br><span class="val">99.99%</span></div>
+                </div>
+            </div>
+            <div class="component-card healthy" id="comp-gps">
+                <div class="component-header">
+                    <span class="component-name">📡 Service GPS</span>
+                    <span class="component-status healthy">Opérationnel</span>
+                </div>
+                <div class="component-metrics">
+                    <div class="component-metric"><span class="label">Latence</span><br><span class="val">45ms</span></div>
+                    <div class="component-metric"><span class="label">Positions/min</span><br><span class="val">1,280</span></div>
+                    <div class="component-metric"><span class="label">Erreurs</span><br><span class="val">0.02%</span></div>
+                    <div class="component-metric"><span class="label">Buffer</span><br><span class="val">0 msg</span></div>
+                </div>
+            </div>
+            <div class="component-card healthy" id="comp-db">
+                <div class="component-header">
+                    <span class="component-name">🗄️ Base de données</span>
+                    <span class="component-status healthy">Opérationnel</span>
+                </div>
+                <div class="component-metrics">
+                    <div class="component-metric"><span class="label">Latence</span><br><span class="val">5ms</span></div>
+                    <div class="component-metric"><span class="label">Connexions</span><br><span class="val">12/100</span></div>
+                    <div class="component-metric"><span class="label">Réplication</span><br><span class="val">Sync</span></div>
+                    <div class="component-metric"><span class="label">Espace</span><br><span class="val">34%</span></div>
+                </div>
+            </div>
+            <div class="component-card healthy" id="comp-alertes">
+                <div class="component-header">
+                    <span class="component-name">🚨 Service Alertes (GEO-9)</span>
+                    <span class="component-status healthy">Opérationnel</span>
+                </div>
+                <div class="component-metrics">
+                    <div class="component-metric"><span class="label">Latence</span><br><span class="val">12ms</span></div>
+                    <div class="component-metric"><span class="label">Alertes/h</span><br><span class="val">28</span></div>
+                    <div class="component-metric"><span class="label">Queue</span><br><span class="val">0</span></div>
+                    <div class="component-metric"><span class="label">Retry</span><br><span class="val">0</span></div>
+                </div>
+            </div>
+            <div class="component-card healthy" id="comp-notif">
+                <div class="component-header">
+                    <span class="component-name">📧 Notifications (GEO-10)</span>
+                    <span class="component-status healthy">Opérationnel</span>
+                </div>
+                <div class="component-metrics">
+                    <div class="component-metric"><span class="label">Latence</span><br><span class="val">89ms</span></div>
+                    <div class="component-metric"><span class="label">Envois/h</span><br><span class="val">156</span></div>
+                    <div class="component-metric"><span class="label">Échecs</span><br><span class="val">0.1%</span></div>
+                    <div class="component-metric"><span class="label">Fallback</span><br><span class="val">Prêt</span></div>
+                </div>
+            </div>
+            <div class="component-card healthy" id="comp-carte">
+                <div class="component-header">
+                    <span class="component-name">🗺️ Filtre Carte (GEO-7)</span>
+                    <span class="component-status healthy">Opérationnel</span>
+                </div>
+                <div class="component-metrics">
+                    <div class="component-metric"><span class="label">Latence</span><br><span class="val">32ms</span></div>
+                    <div class="component-metric"><span class="label">Véhicules</span><br><span class="val">47</span></div>
+                    <div class="component-metric"><span class="label">Cache hit</span><br><span class="val">94%</span></div>
+                    <div class="component-metric"><span class="label">Refresh</span><br><span class="val">5s</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Circuit Breakers -->
+        <div class="circuit-section">
+            <div class="section-title"><span class="icon">⚡</span> Circuit Breakers</div>
+            <div class="circuit-grid">
+                <div class="circuit-card" id="cb-api">
+                    <div class="name">API Gateway</div>
+                    <div class="state closed">FERMÉ</div>
+                    <div class="failures">0/5 échecs</div>
+                </div>
+                <div class="circuit-card" id="cb-gps">
+                    <div class="name">Service GPS</div>
+                    <div class="state closed">FERMÉ</div>
+                    <div class="failures">0/5 échecs</div>
+                </div>
+                <div class="circuit-card" id="cb-db">
+                    <div class="name">Base de données</div>
+                    <div class="state closed">FERMÉ</div>
+                    <div class="failures">0/5 échecs</div>
+                </div>
+                <div class="circuit-card" id="cb-alertes">
+                    <div class="name">Alertes</div>
+                    <div class="state closed">FERMÉ</div>
+                    <div class="failures">0/5 échecs</div>
+                </div>
+                <div class="circuit-card" id="cb-notif">
+                    <div class="name">Notifications</div>
+                    <div class="state closed">FERMÉ</div>
+                    <div class="failures">0/5 échecs</div>
+                </div>
+                <div class="circuit-card" id="cb-carte">
+                    <div class="name">Filtre Carte</div>
+                    <div class="state closed">FERMÉ</div>
+                    <div class="failures">0/5 échecs</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline incidents -->
+        <div class="section-title"><span class="icon">📜</span> Timeline événements (dernières 24h)</div>
+        <div class="timeline-section" id="timeline">
+            <div class="timeline-item">
+                <span class="timeline-time">14:42</span>
+                <div class="timeline-dot recovery"></div>
+                <div class="timeline-content">
+                    <div class="title">✅ Tous les systèmes opérationnels</div>
+                    <div class="desc">Aucun incident depuis 72h</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <span class="timeline-time">08:00</span>
+                <div class="timeline-dot recovery"></div>
+                <div class="timeline-content">
+                    <div class="title">Health check automatique — OK</div>
+                    <div class="desc">6/6 composants répondent normalement</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <span class="timeline-time">02:00</span>
+                <div class="timeline-dot recovery"></div>
+                <div class="timeline-content">
+                    <div class="title">Maintenance planifiée terminée</div>
+                    <div class="desc">Mise à jour DB réplica — 0 downtime</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Runbook actions rapides -->
+        <div class="section-title"><span class="icon">📋</span> Runbook — Procédures de secours</div>
+        <div class="runbook-section">
+            <div class="runbook-card">
+                <h4>🔴 Panne Service GPS</h4>
+                <ul class="steps">
+                    <li>Activer buffer local (cache 5 min)</li>
+                    <li>Basculer vers GPS secondaire</li>
+                    <li>Alerter admin via SMS</li>
+                    <li>Retry automatique toutes les 30s</li>
+                    <li>Vérifier connectivité trackers</li>
+                </ul>
+            </div>
+            <div class="runbook-card">
+                <h4>🔴 Panne Base de données</h4>
+                <ul class="steps">
+                    <li>Basculer vers réplica lecture</li>
+                    <li>File d'attente écritures (queue)</li>
+                    <li>Mode dégradé : lecture seule</li>
+                    <li>Notifier équipe DBA</li>
+                    <li>Replay queue après recovery</li>
+                </ul>
+            </div>
+            <div class="runbook-card">
+                <h4>🔴 Panne Notifications</h4>
+                <ul class="steps">
+                    <li>Fallback : email → SMS</li>
+                    <li>Queue notifications en attente</li>
+                    <li>Alertes critiques en priorité</li>
+                    <li>Retry backoff exponentiel</li>
+                    <li>Log alertes non envoyées</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal simulation -->
+    <div class="modal-overlay" id="simModal">
+        <div class="modal">
+            <h3>⚡ Simuler une panne</h3>
+            <div class="form-group">
+                <label>Composant à mettre en panne</label>
+                <select id="simComponent">
+                    <option value="gps">📡 Service GPS</option>
+                    <option value="db">🗄️ Base de données</option>
+                    <option value="notif">📧 Notifications</option>
+                    <option value="alertes">🚨 Alertes</option>
+                    <option value="carte">🗺️ Filtre Carte</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Durée simulation (secondes)</label>
+                <input type="number" id="simDuration" value="10" min="5" max="60">
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-outline" onclick="hideSimulation()">Annuler</button>
+                <button class="btn btn-danger" onclick="startSimulation()">🔥 Déclencher panne</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <div class="footer">
+        GEO-16 — Health Dashboard | GeoTrack GEN1423 Groupe 8 | Critère #1: Panne partielle n'interrompt pas le système | Critère #2: Mécanisme de secours documenté
+    </div>
+
+    <script>
+        // Simulation de panne
+        function showSimulation() { document.getElementById('simModal').classList.add('active'); }
+        function hideSimulation() { document.getElementById('simModal').classList.remove('active'); }
+        
+        function startSimulation() {
+            const comp = document.getElementById('simComponent').value;
+            const duration = parseInt(document.getElementById('simDuration').value) * 1000;
+            hideSimulation();
+            
+            // Mettre composant en panne
+            triggerFailure(comp);
+            showToast(`⚡ Panne simulée: ${comp.toUpperCase()} — Failover activé`, 'warning');
+            
+            // Ajouter à timeline
+            addTimelineEvent('failure', `Panne détectée: ${comp.toUpperCase()}`, 'Circuit Breaker ouvert — Failover activé');
+            
+            // Après 2s : failover
+            setTimeout(() => {
+                triggerFailover(comp);
+                addTimelineEvent('failover', `Failover activé: ${comp.toUpperCase()}`, 'Système continue en mode dégradé');
+                showToast('🔄 Failover activé — système continue de fonctionner', 'warning');
+            }, 2000);
+            
+            // Recovery après durée
+            setTimeout(() => {
+                triggerRecovery(comp);
+                addTimelineEvent('recovery', `Recovery: ${comp.toUpperCase()} restauré`, 'Retour à la normale — 0 donnée perdue');
+                showToast('✅ Recovery complète — tous systèmes opérationnels', 'success');
+            }, duration);
+        }
+        
+        function triggerFailure(comp) {
+            const card = document.getElementById(`comp-${comp}`);
+            card.className = 'component-card critical';
+            card.querySelector('.component-status').className = 'component-status critical';
+            card.querySelector('.component-status').textContent = 'EN PANNE';
+            
+            const cb = document.getElementById(`cb-${comp}`);
+            cb.querySelector('.state').className = 'state open';
+            cb.querySelector('.state').textContent = 'OUVERT';
+            cb.querySelector('.failures').textContent = '5/5 échecs';
+            
+            // Update global
+            document.getElementById('globalDot').className = 'dot degraded';
+            document.getElementById('globalStatus').textContent = 'Mode dégradé — Failover actif';
+            updateMetrics('degraded');
+        }
+        
+        function triggerFailover(comp) {
+            const card = document.getElementById(`comp-${comp}`);
+            card.className = 'component-card degraded';
+            card.querySelector('.component-status').className = 'component-status degraded';
+            card.querySelector('.component-status').textContent = 'Failover actif';
+        }
+        
+        function triggerRecovery(comp) {
+            const card = document.getElementById(`comp-${comp}`);
+            card.className = 'component-card healthy';
+            card.querySelector('.component-status').className = 'component-status healthy';
+            card.querySelector('.component-status').textContent = 'Opérationnel';
+            
+            const cb = document.getElementById(`cb-${comp}`);
+            cb.querySelector('.state').className = 'state closed';
+            cb.querySelector('.state').textContent = 'FERMÉ';
+            cb.querySelector('.failures').textContent = '0/5 échecs';
+            
+            document.getElementById('globalDot').className = 'dot healthy';
+            document.getElementById('globalStatus').textContent = 'Tous les systèmes opérationnels';
+            updateMetrics('healthy');
+        }
+        
+        function updateMetrics(state) {
+            const cards = document.querySelectorAll('.metric-card .value');
+            if (state === 'degraded') {
+                cards[0].textContent = '5/6'; cards[0].className = 'value yellow';
+                cards[2].textContent = '1'; cards[2].className = 'value red';
+                cards[4].textContent = '1'; cards[4].className = 'value red';
+            } else {
+                cards[0].textContent = '6/6'; cards[0].className = 'value green';
+                cards[2].textContent = '0'; cards[2].className = 'value green';
+                cards[4].textContent = '0'; cards[4].className = 'value green';
+            }
+        }
+        
+        function addTimelineEvent(type, title, desc) {
+            const timeline = document.getElementById('timeline');
+            const now = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.innerHTML = `
+                <span class="timeline-time">${now}</span>
+                <div class="timeline-dot ${type}"></div>
+                <div class="timeline-content">
+                    <div class="title">${title}</div>
+                    <div class="desc">${desc}</div>
+                </div>
+            `;
+            timeline.insertBefore(item, timeline.firstChild);
+        }
+        
+        function showToast(msg, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${type}`;
+            setTimeout(() => { toast.className = 'toast'; }, 4000);
+        }
+        
+        function refreshAll() { showToast('🔄 Métriques rafraîchies', 'success'); }
+        
+        function resetAll() {
+            ['api','gps','db','alertes','notif','carte'].forEach(c => triggerRecovery(c));
+            showToast('↺ Dashboard réinitialisé', 'success');
+        }
+    </script>
+</body>
+</html>
