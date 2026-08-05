@@ -1,0 +1,335 @@
+@startuml GEO-38-Sequence-Alerte-Vitesse
+!theme plain
+title Diagramme de Séquence - Système d'Alerte de Vitesse\nGEO-38 | GeoTrack - Groupe 8
+
+' ============================================================
+' ACTEURS ET PARTICIPANTS
+' ============================================================
+
+actor "Conducteur" as Conducteur
+participant "Appareil GPS" as GPS
+participant "Service\nRéception GPS" as ReceptionGPS
+participant "Service\nCalcul Vitesse" as CalculVitesse
+participant "Moteur\nRègles Alerte" as MoteurRegles
+database "Base de Données" as DB
+participant "Service\nAnti-Spam" as AntiSpam
+participant "Service\nNotification" as Notification
+actor "Gestionnaire\nFlotte" as Gestionnaire
+
+' ============================================================
+' SCÉNARIO 1 : DÉTECTION VITESSE NORMALE (PAS D'ALERTE)
+' ============================================================
+
+== Scénario 1 : Vitesse normale — Aucune alerte ==
+
+Conducteur -> GPS : Conduit à 45 km/h
+GPS -> ReceptionGPS : envoyerPosition(lat, lng, timestamp)
+activate ReceptionGPS
+
+ReceptionGPS -> CalculVitesse : calculerVitesse(positionActuelle, positionPrecedente)
+activate CalculVitesse
+
+CalculVitesse -> CalculVitesse : vitesse = 45 km/h
+CalculVitesse -> MoteurRegles : evaluerSeuil(vitesse=45, zoneId)
+activate MoteurRegles
+
+MoteurRegles -> DB : getRegleAlerte(zoneId)
+DB --> MoteurRegles : seuil_avertissement=55, seuil_alerte=70, seuil_critique=90
+
+MoteurRegles -> MoteurRegles : 45 < 55 → ÉTAT NORMAL
+MoteurRegles --> CalculVitesse : ResultatEvaluation(niveau=NORMAL, alerte=false)
+deactivate MoteurRegles
+
+CalculVitesse -> DB : enregistrerMesure(vitesse=45, statut=NORMAL)
+CalculVitesse --> ReceptionGPS : TraitementOK
+deactivate CalculVitesse
+
+ReceptionGPS --> GPS : ACK
+deactivate ReceptionGPS
+
+note right of MoteurRegles
+  Aucune alerte déclenchée.
+  Vitesse sous le seuil d'avertissement.
+end note
+
+' ============================================================
+' SCÉNARIO 2 : DÉPASSEMENT AVERTISSEMENT (OBSERVATION)
+' ============================================================
+
+== Scénario 2 : Dépassement avertissement — Mise en observation ==
+
+Conducteur -> GPS : Accélère à 58 km/h
+GPS -> ReceptionGPS : envoyerPosition(lat, lng, timestamp)
+activate ReceptionGPS
+
+ReceptionGPS -> CalculVitesse : calculerVitesse(positionActuelle, positionPrecedente)
+activate CalculVitesse
+
+CalculVitesse -> CalculVitesse : vitesse = 58 km/h
+CalculVitesse -> MoteurRegles : evaluerSeuil(vitesse=58, zoneId)
+activate MoteurRegles
+
+MoteurRegles -> DB : getRegleAlerte(zoneId)
+DB --> MoteurRegles : seuil_avertissement=55, tolerance=5, echantillons_min=3
+
+MoteurRegles -> MoteurRegles : 58 > 55 → ÉTAT EN_OBSERVATION
+MoteurRegles -> MoteurRegles : echantillon_count = 1/3 (insuffisant)
+
+MoteurRegles -> DB : sauvegarderEtat(appareilId, etat=EN_OBSERVATION, count=1)
+MoteurRegles --> CalculVitesse : ResultatEvaluation(niveau=OBSERVATION, alerte=false)
+deactivate MoteurRegles
+
+CalculVitesse -> DB : enregistrerMesure(vitesse=58, statut=OBSERVATION)
+CalculVitesse --> ReceptionGPS : TraitementOK
+deactivate CalculVitesse
+
+ReceptionGPS --> GPS : ACK
+deactivate ReceptionGPS
+
+note right of MoteurRegles
+  Premier échantillon au-dessus du seuil.
+  Besoin de 3 échantillons consécutifs
+  pour confirmer le dépassement.
+end note
+
+' ============================================================
+' SCÉNARIO 3 : ALERTE CONFIRMÉE (3 ÉCHANTILLONS CONSÉCUTIFS)
+' ============================================================
+
+== Scénario 3 : Alerte confirmée — Notification envoyée ==
+
+Conducteur -> GPS : Maintient 62 km/h (3e échantillon)
+GPS -> ReceptionGPS : envoyerPosition(lat, lng, timestamp)
+activate ReceptionGPS
+
+ReceptionGPS -> CalculVitesse : calculerVitesse(positionActuelle, positionPrecedente)
+activate CalculVitesse
+
+CalculVitesse -> CalculVitesse : vitesse = 62 km/h
+CalculVitesse -> MoteurRegles : evaluerSeuil(vitesse=62, zoneId)
+activate MoteurRegles
+
+MoteurRegles -> DB : getEtatObservation(appareilId)
+DB --> MoteurRegles : etat=EN_OBSERVATION, count=2, debut=timestamp-20s
+
+MoteurRegles -> MoteurRegles : 62 > 55 → count = 3/3 ✓
+MoteurRegles -> MoteurRegles : duree = 30s > duree_min(10s) ✓
+MoteurRegles -> MoteurRegles : ÉTAT → DÉCLENCHÉE (Avertissement)
+
+MoteurRegles -> AntiSpam : verifierQuota(appareilId, type=AVERTISSEMENT)
+activate AntiSpam
+
+AntiSpam -> DB : getHistoriqueAlertes(appareilId, derniere_heure)
+DB --> AntiSpam : count=2, derniere_alerte=il_y_a_6min
+
+AntiSpam -> AntiSpam : 2 < max_horaire(10) ✓
+AntiSpam -> AntiSpam : 6min > cooldown(5min) ✓
+AntiSpam --> MoteurRegles : QuotaOK(autorise=true)
+deactivate AntiSpam
+
+MoteurRegles -> DB : creerEvenement(type=AVERTISSEMENT, vitesse=62, seuil=55)
+MoteurRegles -> Notification : envoyerAlerte(alerte)
+activate Notification
+
+Notification -> Notification : determinerCanaux(severite=AVERTISSEMENT)
+Notification -> Gestionnaire : pushNotification("Véhicule X : 62 km/h dans zone 50")
+Notification -> DB : enregistrerNotification(alerteId, canal=PUSH, statut=ENVOYEE)
+Notification --> MoteurRegles : NotificationEnvoyee
+deactivate Notification
+
+MoteurRegles -> DB : mettreAJourEtat(appareilId, etat=DECLENCHEE)
+MoteurRegles --> CalculVitesse : ResultatEvaluation(niveau=AVERTISSEMENT, alerte=true)
+deactivate MoteurRegles
+
+CalculVitesse -> DB : enregistrerMesure(vitesse=62, statut=ALERTE_ENVOYEE)
+CalculVitesse --> ReceptionGPS : TraitementOK
+deactivate CalculVitesse
+
+ReceptionGPS --> GPS : ACK
+deactivate ReceptionGPS
+
+note right of Notification
+  Canaux pour AVERTISSEMENT :
+  - Push notification ✓
+  - Dashboard ✓
+  - Email : non (seulement pour ALERTE+)
+end note
+
+' ============================================================
+' SCÉNARIO 4 : ALERTE CRITIQUE IMMÉDIATE
+' ============================================================
+
+== Scénario 4 : Vitesse critique — Alerte immédiate sans observation ==
+
+Conducteur -> GPS : Accélère à 95 km/h
+GPS -> ReceptionGPS : envoyerPosition(lat, lng, timestamp)
+activate ReceptionGPS
+
+ReceptionGPS -> CalculVitesse : calculerVitesse(positionActuelle, positionPrecedente)
+activate CalculVitesse
+
+CalculVitesse -> CalculVitesse : vitesse = 95 km/h
+CalculVitesse -> MoteurRegles : evaluerSeuil(vitesse=95, zoneId)
+activate MoteurRegles
+
+MoteurRegles -> DB : getRegleAlerte(zoneId)
+DB --> MoteurRegles : seuil_critique=90
+
+MoteurRegles -> MoteurRegles : 95 > 90 → CRITIQUE (pas d'observation requise)
+MoteurRegles -> MoteurRegles : ÉTAT → DÉCLENCHÉE (Critique) immédiat
+
+MoteurRegles -> AntiSpam : verifierQuota(appareilId, type=CRITIQUE)
+activate AntiSpam
+AntiSpam -> AntiSpam : CRITIQUE → toujours autorisé (bypass anti-spam)
+AntiSpam --> MoteurRegles : QuotaOK(autorise=true, bypass=true)
+deactivate AntiSpam
+
+MoteurRegles -> DB : creerEvenement(type=CRITIQUE, vitesse=95, seuil=90)
+MoteurRegles -> Notification : envoyerAlerteCritique(alerte)
+activate Notification
+
+Notification -> Notification : determinerCanaux(severite=CRITIQUE)
+Notification -> Gestionnaire : pushNotification("⚠️ CRITIQUE : Véhicule X à 95 km/h!")
+Notification -> Gestionnaire : envoyerSMS("ALERTE CRITIQUE - Véhicule X dépasse 90 km/h")
+Notification -> Gestionnaire : envoyerEmail(sujet="[CRITIQUE] Dépassement vitesse dangereux")
+Notification -> DB : enregistrerNotification(alerteId, canaux=[PUSH,SMS,EMAIL])
+Notification --> MoteurRegles : NotificationEnvoyee(canaux=3)
+deactivate Notification
+
+MoteurRegles -> DB : mettreAJourEtat(appareilId, etat=CRITIQUE)
+MoteurRegles --> CalculVitesse : ResultatEvaluation(niveau=CRITIQUE, alerte=true)
+deactivate MoteurRegles
+
+CalculVitesse -> DB : enregistrerMesure(vitesse=95, statut=CRITIQUE)
+CalculVitesse --> ReceptionGPS : TraitementOK
+deactivate CalculVitesse
+
+ReceptionGPS --> GPS : ACK
+deactivate ReceptionGPS
+
+note right of Notification #FFcccc
+  CRITIQUE → Tous les canaux :
+  - Push notification ✓
+  - SMS ✓
+  - Email ✓
+  - Dashboard ✓
+  Pas d'anti-spam pour les critiques!
+end note
+
+' ============================================================
+' SCÉNARIO 5 : ANTI-SPAM — ALERTE BLOQUÉE
+' ============================================================
+
+== Scénario 5 : Anti-spam — Alerte bloquée (cooldown actif) ==
+
+Conducteur -> GPS : Encore à 60 km/h (2 min après dernière alerte)
+GPS -> ReceptionGPS : envoyerPosition(lat, lng, timestamp)
+activate ReceptionGPS
+
+ReceptionGPS -> CalculVitesse : calculerVitesse(positionActuelle, positionPrecedente)
+activate CalculVitesse
+
+CalculVitesse -> CalculVitesse : vitesse = 60 km/h
+CalculVitesse -> MoteurRegles : evaluerSeuil(vitesse=60, zoneId)
+activate MoteurRegles
+
+MoteurRegles -> MoteurRegles : 60 > 55 → dépassement confirmé
+MoteurRegles -> AntiSpam : verifierQuota(appareilId, type=AVERTISSEMENT)
+activate AntiSpam
+
+AntiSpam -> DB : getHistoriqueAlertes(appareilId, derniere_heure)
+DB --> AntiSpam : derniere_alerte=il_y_a_2min
+
+AntiSpam -> AntiSpam : 2min < cooldown(5min) ✗ BLOQUÉ
+AntiSpam --> MoteurRegles : QuotaRefuse(raison=COOLDOWN, prochaine_autorisation=3min)
+deactivate AntiSpam
+
+MoteurRegles -> DB : enregistrerEvenementBloque(type=AVERTISSEMENT, raison=COOLDOWN)
+MoteurRegles --> CalculVitesse : ResultatEvaluation(niveau=AVERTISSEMENT, alerte=false, bloque=ANTI_SPAM)
+deactivate MoteurRegles
+
+CalculVitesse -> DB : enregistrerMesure(vitesse=60, statut=BLOQUE_ANTI_SPAM)
+CalculVitesse --> ReceptionGPS : TraitementOK
+deactivate CalculVitesse
+
+ReceptionGPS --> GPS : ACK
+deactivate ReceptionGPS
+
+note right of AntiSpam #FFFFCC
+  Anti-spam activé :
+  - Cooldown : 5 minutes entre alertes
+  - Max horaire : 10 alertes/heure
+  - Max quotidien : 50 alertes/jour
+  - Exception : CRITIQUE bypass toujours
+end note
+
+' ============================================================
+' SCÉNARIO 6 : RETOUR À LA NORMALE
+' ============================================================
+
+== Scénario 6 : Retour à la normale — Réinitialisation ==
+
+Conducteur -> GPS : Ralentit à 48 km/h
+GPS -> ReceptionGPS : envoyerPosition(lat, lng, timestamp)
+activate ReceptionGPS
+
+ReceptionGPS -> CalculVitesse : calculerVitesse(positionActuelle, positionPrecedente)
+activate CalculVitesse
+
+CalculVitesse -> CalculVitesse : vitesse = 48 km/h
+CalculVitesse -> MoteurRegles : evaluerSeuil(vitesse=48, zoneId)
+activate MoteurRegles
+
+MoteurRegles -> DB : getEtatObservation(appareilId)
+DB --> MoteurRegles : etat=DECLENCHEE
+
+MoteurRegles -> MoteurRegles : 48 < 55 → sous le seuil
+MoteurRegles -> MoteurRegles : ÉTAT → NORMAL (réinitialisation)
+
+MoteurRegles -> DB : reinitialiserEtat(appareilId, etat=NORMAL, count=0)
+MoteurRegles -> DB : creerEvenement(type=RETOUR_NORMAL, vitesse=48)
+
+MoteurRegles -> Notification : envoyerResolution(appareilId)
+activate Notification
+Notification -> Gestionnaire : pushNotification("✅ Véhicule X : vitesse normalisée (48 km/h)")
+Notification --> MoteurRegles : NotificationEnvoyee
+deactivate Notification
+
+MoteurRegles --> CalculVitesse : ResultatEvaluation(niveau=NORMAL, retourNormal=true)
+deactivate MoteurRegles
+
+CalculVitesse -> DB : enregistrerMesure(vitesse=48, statut=RETOUR_NORMAL)
+CalculVitesse --> ReceptionGPS : TraitementOK
+deactivate CalculVitesse
+
+ReceptionGPS --> GPS : ACK
+deactivate ReceptionGPS
+
+note right of MoteurRegles #ccFFcc
+  Retour à la normale :
+  - Compteur échantillons réinitialisé
+  - État revient à NORMAL
+  - Notification de résolution envoyée
+  - Prêt pour prochaine détection
+end note
+
+' ============================================================
+' LÉGENDE
+' ============================================================
+
+legend bottom
+  |= Niveau |= Seuil |= Observation requise |= Canaux |
+  | Normal | < 55 km/h | Non | Aucun |
+  | Avertissement | > 55 km/h | 3 échantillons / 10s | Push, Dashboard |
+  | Alerte | > 70 km/h | 3 échantillons / 10s | Push, Email, Dashboard |
+  | Critique | > 90 km/h | Non (immédiat) | Push, SMS, Email, Dashboard |
+  
+  **Anti-spam** : Cooldown 5 min | Max 10/heure | Max 50/jour | Critique exempt
+  
+  Projet : GeoTrack GEN1423 — Groupe 8
+  Auteur : Sory Fofana
+  Date : 2026-08-05
+  Ticket : GEO-38 (sous-tâche de GEO-10)
+endlegend
+
+@enduml
