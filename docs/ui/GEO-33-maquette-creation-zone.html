@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEO-33 — Maquette : Création de zone géographique | GeoTrack</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; }
+        
+        /* Header */
+        .header { background: #16213e; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #0f3460; }
+        .header h1 { font-size: 18px; color: #4fc3f7; }
+        .header .breadcrumb { font-size: 13px; color: #888; }
+        .header .breadcrumb span { color: #4fc3f7; }
+        
+        /* Layout principal */
+        .main-layout { display: flex; height: calc(100vh - 52px); }
+        
+        /* Carte */
+        .map-container { flex: 1; position: relative; background: #0d1b2a; overflow: hidden; }
+        .map-grid { width: 100%; height: 100%; background-image: 
+            linear-gradient(rgba(79, 195, 247, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(79, 195, 247, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .map-label { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 4px; font-size: 11px; color: #888; }
+        
+        /* Zone dessinée sur la carte */
+        .drawn-zone { position: absolute; top: 15%; left: 10%; width: 55%; height: 60%; }
+        .drawn-zone svg { width: 100%; height: 100%; }
+        .drawn-zone polygon { fill: rgba(76, 175, 80, 0.15); stroke: #4caf50; stroke-width: 2; stroke-dasharray: 8,4; }
+        .zone-vertex { fill: #4caf50; stroke: #fff; stroke-width: 2; }
+        .zone-label-map { position: absolute; top: 45%; left: 35%; background: rgba(76, 175, 80, 0.9); padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #fff; }
+        
+        /* Véhicules simulés */
+        .vehicle-marker { position: absolute; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; }
+        .vehicle-inside { background: #4caf50; top: 35%; left: 30%; }
+        .vehicle-outside { background: #f44336; top: 70%; left: 75%; }
+        .vehicle-tooltip { position: absolute; background: rgba(0,0,0,0.85); padding: 4px 8px; border-radius: 3px; font-size: 10px; white-space: nowrap; top: -22px; left: 50%; transform: translateX(-50%); }
+        
+        /* Toolbar carte */
+        .map-toolbar { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .tool-btn { width: 36px; height: 36px; border: 1px solid #333; background: #1e293b; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: all 0.2s; }
+        .tool-btn:hover { background: #334155; border-color: #4fc3f7; }
+        .tool-btn.active { background: #0f3460; border-color: #4fc3f7; color: #4fc3f7; }
+        
+        /* Panneau latéral */
+        .side-panel { width: 360px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid #0f3460; }
+        .panel-header h2 { font-size: 16px; color: #4fc3f7; margin-bottom: 4px; }
+        .panel-header p { font-size: 12px; color: #888; }
+        
+        .panel-body { padding: 16px 20px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+        
+        /* Formulaire */
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 12px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { padding: 10px 12px; background: #0d1b2a; border: 1px solid #333; border-radius: 6px; color: #eee; font-size: 14px; transition: border-color 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #4fc3f7; }
+        .form-group .hint { font-size: 11px; color: #666; }
+        .form-group .error { font-size: 11px; color: #f44336; display: none; }
+        .form-group.has-error input { border-color: #f44336; }
+        .form-group.has-error .error { display: block; }
+        
+        /* Toggle switch */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
+        .toggle-label { font-size: 13px; }
+        .toggle-switch { width: 44px; height: 24px; background: #333; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.3s; }
+        .toggle-switch.active { background: #4caf50; }
+        .toggle-switch::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.3s; }
+        .toggle-switch.active::after { transform: translateX(20px); }
+        
+        /* Coordonnées */
+        .coords-section { background: #0d1b2a; border-radius: 8px; padding: 12px; }
+        .coords-title { font-size: 12px; font-weight: 600; color: #888; margin-bottom: 8px; }
+        .coord-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #aaa; border-bottom: 1px solid #1a1a2e; }
+        .coord-item:last-child { border: none; }
+        .coord-item .idx { color: #4fc3f7; font-weight: 600; }
+        
+        /* Boutons */
+        .btn-group { display: flex; gap: 8px; margin-top: auto; padding-top: 16px; }
+        .btn { padding: 12px 16px; border-radius: 6px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; flex: 1; transition: all 0.2s; }
+        .btn-primary { background: #4caf50; color: #fff; }
+        .btn-primary:hover { background: #66bb6a; }
+        .btn-secondary { background: transparent; border: 1px solid #333; color: #aaa; }
+        .btn-secondary:hover { border-color: #4fc3f7; color: #4fc3f7; }
+        
+        /* Notification succès */
+        .success-toast { position: absolute; top: 12px; right: 12px; background: #1b5e20; border: 1px solid #4caf50; padding: 12px 16px; border-radius: 8px; display: none; align-items: center; gap: 8px; font-size: 13px; animation: slideIn 0.3s ease; }
+        .success-toast.show { display: flex; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        /* États d'erreur visibles */
+        .validation-summary { background: rgba(244, 67, 54, 0.1); border: 1px solid #f44336; border-radius: 6px; padding: 10px 12px; display: none; }
+        .validation-summary.show { display: block; }
+        .validation-summary h4 { font-size: 12px; color: #f44336; margin-bottom: 6px; }
+        .validation-summary li { font-size: 11px; color: #e57373; margin-left: 16px; }
+        
+        /* Responsive note */
+        .responsive-note { display: none; }
+        @media (max-width: 768px) {
+            .main-layout { flex-direction: column; }
+            .side-panel { width: 100%; height: 50%; }
+            .map-container { height: 50%; }
+        }
+
+        /* Légende */
+        .map-legend { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.8); padding: 10px 14px; border-radius: 6px; font-size: 11px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .legend-item:last-child { margin: 0; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fff; }
+        .legend-dot.green { background: #4caf50; }
+        .legend-dot.red { background: #f44336; }
+        .legend-line { width: 16px; height: 2px; border-top: 2px dashed #4caf50; }
+    </style>
+</head>
+<body>
+    <!-- En-tête -->
+    <div class="header">
+        <div>
+            <div class="breadcrumb">GeoTrack &gt; Zones géographiques &gt; <span>Nouvelle zone</span></div>
+        </div>
+        <h1>🌐 GeoTrack</h1>
+    </div>
+
+    <!-- Layout principal -->
+    <div class="main-layout">
+        <!-- Zone de carte -->
+        <div class="map-container">
+            <div class="map-grid"></div>
+            
+            <!-- Barre d'outils carte -->
+            <div class="map-toolbar">
+                <div class="tool-btn" title="Sélection">🖱️</div>
+                <div class="tool-btn active" title="Dessiner une zone (polygone)">✏️</div>
+                <div class="tool-btn" title="Déplacer la carte">✋</div>
+                <div class="tool-btn" title="Zoom +">🔍</div>
+                <div class="tool-btn" title="Annuler dernier point">↩️</div>
+            </div>
+            
+            <!-- Zone dessinée (simulation) -->
+            <div class="drawn-zone">
+                <svg viewBox="0 0 400 300">
+                    <polygon points="50,250 80,50 200,20 350,80 380,220 250,280 100,270" />
+                    <circle class="zone-vertex" cx="50" cy="250" r="5" />
+                    <circle class="zone-vertex" cx="80" cy="50" r="5" />
+                    <circle class="zone-vertex" cx="200" cy="20" r="5" />
+                    <circle class="zone-vertex" cx="350" cy="80" r="5" />
+                    <circle class="zone-vertex" cx="380" cy="220" r="5" />
+                    <circle class="zone-vertex" cx="250" cy="280" r="5" />
+                    <circle class="zone-vertex" cx="100" cy="270" r="5" />
+                </svg>
+                <div class="zone-label-map">Zone Montréal-Nord</div>
+            </div>
+            
+            <!-- Véhicules simulés -->
+            <div class="vehicle-marker vehicle-inside">
+                <div class="vehicle-tooltip">🚗 VH-2041 — Dans la zone</div>
+            </div>
+            <div class="vehicle-marker vehicle-outside">
+                <div class="vehicle-tooltip">🚗 VH-3087 — Hors zone ⚠️</div>
+            </div>
+            
+            <!-- Notification succès -->
+            <div class="success-toast" id="successToast">
+                ✅ Zone « Montréal-Nord » créée avec succès — Surveillance activée
+            </div>
+            
+            <!-- Légende -->
+            <div class="map-legend">
+                <div class="legend-item"><span class="legend-dot green"></span> Véhicule dans la zone</div>
+                <div class="legend-item"><span class="legend-dot red"></span> Véhicule hors zone</div>
+                <div class="legend-item"><span class="legend-line"></span> Périmètre de la zone</div>
+            </div>
+            
+            <div class="map-label">📍 Carte — Mode dessin de zone activé | Cliquez pour placer les sommets du polygone</div>
+        </div>
+
+        <!-- Panneau latéral -->
+        <div class="side-panel">
+            <div class="panel-header">
+                <h2>📐 Nouvelle zone géographique</h2>
+                <p>Définissez une zone de surveillance sur la carte</p>
+            </div>
+            
+            <div class="panel-body">
+                <!-- Nom de la zone -->
+                <div class="form-group">
+                    <label>Nom de la zone *</label>
+                    <input type="text" value="Montréal-Nord" placeholder="Ex: Zone industrielle A">
+                    <span class="hint">3 à 50 caractères, unique dans le système</span>
+                    <span class="error">⚠️ Ce nom est déjà utilisé</span>
+                </div>
+                
+                <!-- Véhicule associé -->
+                <div class="form-group">
+                    <label>Véhicule(s) associé(s) *</label>
+                    <select>
+                        <option>VH-2041 — Toyota Corolla 2023</option>
+                        <option>VH-3087 — Honda Civic 2022</option>
+                        <option>Tous les véhicules</option>
+                    </select>
+                    <span class="hint">Sélectionnez un ou plusieurs véhicules à surveiller</span>
+                </div>
+                
+                <!-- Type de zone -->
+                <div class="form-group">
+                    <label>Type de zone</label>
+                    <select>
+                        <option>🟢 Inclusion (alerte si le véhicule SORT)</option>
+                        <option>🔴 Exclusion (alerte si le véhicule ENTRE)</option>
+                    </select>
+                </div>
+                
+                <!-- Activation -->
+                <div class="toggle-row">
+                    <span class="toggle-label">🔔 Surveillance active</span>
+                    <div class="toggle-switch active"></div>
+                </div>
+                
+                <div class="toggle-row">
+                    <span class="toggle-label">📧 Notification par courriel</span>
+                    <div class="toggle-switch"></div>
+                </div>
+                
+                <!-- Coordonnées de la zone -->
+                <div class="coords-section">
+                    <div class="coords-title">📍 Sommets de la zone (7 points)</div>
+                    <div class="coord-item"><span class="idx">P1</span> <span>45.5890, -73.6420</span></div>
+                    <div class="coord-item"><span class="idx">P2</span> <span>45.5920, -73.6380</span></div>
+                    <div class="coord-item"><span class="idx">P3</span> <span>45.5950, -73.6300</span></div>
+                    <div class="coord-item"><span class="idx">P4</span> <span>45.5930, -73.6250</span></div>
+                    <div class="coord-item"><span class="idx">P5</span> <span>45.5880, -73.6240</span></div>
+                    <div class="coord-item"><span class="idx">P6</span> <span>45.5860, -73.6310</span></div>
+                    <div class="coord-item"><span class="idx">P7</span> <span>45.5870, -73.6390</span></div>
+                </div>
+                
+                <!-- Validation (état erreur — caché par défaut) -->
+                <div class="validation-summary" id="validationErrors">
+                    <h4>⚠️ Erreurs de validation</h4>
+                    <ul>
+                        <li>Le nom de la zone est obligatoire</li>
+                        <li>La zone doit avoir au minimum 3 sommets</li>
+                        <li>Sélectionnez au moins un véhicule</li>
+                    </ul>
+                </div>
+                
+                <!-- Boutons d'action -->
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="resetForm()">Annuler</button>
+                    <button class="btn btn-primary" onclick="createZone()">✅ Créer la zone</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createZone() {
+            const toast = document.getElementById('successToast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+        
+        function resetForm() {
+            document.getElementById('validationErrors').classList.toggle('show');
+        }
+        
+        // Interactivité des toggles
+        document.querySelectorAll('.toggle-switch').forEach(toggle => {
+            toggle.addEventListener('click', () => toggle.classList.toggle('active'));
+        });
+        
+        // Interactivité toolbar
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
