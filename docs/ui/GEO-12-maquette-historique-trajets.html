@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEO-12 - Maquette UI Historique Trajets</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+        
+        .header {
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 1.4rem; }
+        .header .subtitle { opacity: 0.8; font-size: 0.85rem; margin-top: 4px; }
+        .badge-story { background: #4fc3f7; color: #0d47a1; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        
+        .container { display: flex; height: calc(100vh - 80px); }
+        
+        /* Panel gauche - Liste trajets */
+        .panel-liste {
+            width: 420px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .filtres {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        .filtres h3 { font-size: 0.9rem; color: #424242; margin-bottom: 10px; }
+        .filtre-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .filtre-row input, .filtre-row select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.82rem;
+        }
+        .btn-filtrer {
+            width: 100%;
+            padding: 8px;
+            background: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .btn-filtrer:hover { background: #283593; }
+        
+        .liste-trajets {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        
+        .trajet-card {
+            background: #f9f9f9;
+            border: 1px solid #e8e8e8;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .trajet-card:hover { border-color: #1a237e; background: #e8eaf6; }
+        .trajet-card.active { border-color: #1a237e; background: #c5cae9; box-shadow: 0 2px 8px rgba(26,35,126,0.2); }
+        
+        .trajet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .trajet-date { font-weight: 600; color: #1a237e; font-size: 0.9rem; }
+        .trajet-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .badge-termine { background: #e8f5e9; color: #2e7d32; }
+        .badge-encours { background: #fff3e0; color: #e65100; }
+        
+        .trajet-details { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .trajet-detail { font-size: 0.78rem; color: #616161; }
+        .trajet-detail strong { color: #424242; }
+        
+        .trajet-lieux { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0; }
+        .lieu { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #424242; margin-bottom: 4px; }
+        .lieu-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-depart { background: #4caf50; }
+        .dot-arrivee { background: #f44336; }
+        
+        /* Panel droit - Carte */
+        .panel-carte {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .carte-header {
+            padding: 12px 20px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .carte-titre { font-size: 0.95rem; font-weight: 600; color: #1a237e; }
+        .carte-actions { display: flex; gap: 8px; }
+        .btn-action {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-action:hover { background: #f5f5f5; }
+        .btn-action.active { background: #e8eaf6; border-color: #1a237e; color: #1a237e; }
+        
+        #map { flex: 1; }
+        
+        /* Stats trajet sélectionné */
+        .stats-bar {
+            padding: 10px 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 24px;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 1.1rem; font-weight: 700; color: #1a237e; }
+        .stat-label { font-size: 0.72rem; color: #757575; }
+        
+        /* Pagination */
+        .pagination {
+            padding: 10px 12px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            background: #fafafa;
+        }
+        .pagination button {
+            padding: 4px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.78rem;
+        }
+        .pagination button.active { background: #1a237e; color: white; border-color: #1a237e; }
+        .pagination span { font-size: 0.78rem; color: #757575; }
+        
+        /* Export */
+        .btn-export {
+            padding: 6px 12px;
+            background: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .btn-export:hover { background: #1b5e20; }
+        
+        /* Animation trajet */
+        .vehicule-anime {
+            width: 12px;
+            height: 12px;
+            background: #1a237e;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 6px rgba(0,0,0,0.4);
+        }
+        
+        /* Légende vitesse */
+        .legende-vitesse {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-size: 0.75rem;
+        }
+        .legende-titre { font-weight: 600; margin-bottom: 6px; color: #424242; }
+        .legende-item { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+        .legende-color { width: 20px; height: 4px; border-radius: 2px; }
+        
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #9e9e9e;
+        }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-state p { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>📍 Historique des Trajets</h1>
+            <div class="subtitle">GEO-12 — Consultation et visualisation des trajets véhicules</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button class="btn-export" onclick="exportCSV()">📥 Export CSV</button>
+            <span class="badge-story">GEO-12</span>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Panel gauche : Liste des trajets -->
+        <div class="panel-liste">
+            <div class="filtres">
+                <h3>🔍 Filtrer les trajets</h3>
+                <div class="filtre-row">
+                    <select id="selectVehicule">
+                        <option value="">-- Véhicule --</option>
+                        <option value="v1" selected>🚛 TRK-2024-001 (Volvo FH16)</option>
+                        <option value="v2">🚐 VAN-2024-003 (Mercedes Sprinter)</option>
+                        <option value="v3">🚗 CAR-2024-007 (Toyota Corolla)</option>
+                    </select>
+                </div>
+                <div class="filtre-row">
+                    <input type="date" id="dateDebut" value="2026-07-28">
+                    <input type="date" id="dateFin" value="2026-08-05">
+                </div>
+                <div class="filtre-row">
+                    <select id="selectStatut">
+                        <option value="">Tous les statuts</option>
+                        <option value="termine">Terminé</option>
+                        <option value="encours">En cours</option>
+                    </select>
+                    <select id="selectTri">
+                        <option value="date-desc">Plus récent</option>
+                        <option value="date-asc">Plus ancien</option>
+                        <option value="distance-desc">Distance ↓</option>
+                        <option value="duree-desc">Durée ↓</option>
+                    </select>
+                </div>
+                <button class="btn-filtrer" onclick="filtrer()">Appliquer les filtres</button>
+            </div>
+            
+            <div class="liste-trajets" id="listeTrajets">
+                <!-- Trajet 1 - Sélectionné -->
+                <div class="trajet-card active" onclick="selectTrajet(this, 0)">
+                    <div class="trajet-header">
+                        <span class="trajet-date">📅 5 août 2026 — 08:15</span>
+                        <span class="trajet-badge badge-termine">✅ Terminé</span>
+                    </div>
+                    <div class="trajet-details">
+                        <div class="trajet-detail"><strong>Durée :</strong> 1h 42min</div>
+                        <div class="trajet-detail"><strong>Distance :</strong> 87.3 km</div>
+                        <div class="trajet-detail"><strong>Vit. moy :</strong> 51 km/h</div>
+                        <div class="trajet-detail"><strong>Arrêts :</strong> 2</div>
+                    </div>
+                    <div class="trajet-lieux">
+                        <div class="lieu"><span class="lieu-dot dot-depart"></span> Entrepôt Gatineau</div>
+                        <div class="lieu"><span class="lieu-dot dot-arrivee"></span> Client — Ottawa Centre</div>
+                    </div>
+                </div>
+                
+                <!-- Trajet 2 -->
+                <div class="trajet-card" onclick="selectTrajet(this, 1)">
+                    <div class="trajet-header">
+                        <span class="trajet-date">📅 4 août 2026 — 14:30</span>
+                        <span class="trajet-badge badge-termine">✅ Terminé</span>
+                    </div>
+                    <div class="trajet-details">
+                        <div class="trajet-detail"><strong>Durée :</strong> 2h 15min</div>
+                        <div class="trajet-detail"><strong>Distance :</strong> 124.8 km</div>
+                        <div class="trajet-detail"><strong>Vit. moy :</strong> 55 km/h</div>
+                        <div class="trajet-detail"><strong>Arrêts :</strong> 3</div>
+                    </div>
+                    <div class="trajet-lieux">
+                        <div class="lieu"><span class="lieu-dot dot-depart"></span> Client — Ottawa Centre</div>
+                        <div class="lieu"><span class="lieu-dot dot-arrivee"></span> Dépôt Hull</div>
+                    </div>
+                </div>
+                
+                <!-- Trajet 3 -->
+                <div class="trajet-card" onclick="selectTrajet(this, 2)">
+                    <div class="trajet-header">
+                        <span class="trajet-date">📅 4 août 2026 — 07:45</span>
+                        <span class="trajet-badge badge-termine">✅ Terminé</span>
+                    </div>
+                    <div class="trajet-details">
+                        <div class="trajet-detail"><strong>Durée :</strong> 0h 35min</div>
+                        <div class="trajet-detail"><strong>Distance :</strong> 18.2 km</div>
+                        <div class="trajet-detail"><strong>Vit. moy :</strong> 31 km/h</div>
+                        <div class="trajet-detail"><strong>Arrêts :</strong> 0</div>
+                    </div>
+                    <div class="trajet-lieux">
+                        <div class="lieu"><span class="lieu-dot dot-depart"></span> Domicile conducteur</div>
+                        <div class="lieu"><span class="lieu-dot dot-arrivee"></span> Entrepôt Gatineau</div>
+                    </div>
+                </div>
+                
+                <!-- Trajet 4 -->
+                <div class="trajet-card" onclick="selectTrajet(this, 3)">
+                    <div class="trajet-header">
+                        <span class="trajet-date">📅 3 août 2026 — 09:00</span>
+                        <span class="trajet-badge badge-termine">✅ Terminé</span>
+                    </div>
+                    <div class="trajet-details">
+                        <div class="trajet-detail"><strong>Durée :</strong> 3h 10min</div>
+                        <div class="trajet-detail"><strong>Distance :</strong> 198.5 km</div>
+                        <div class="trajet-detail"><strong>Vit. moy :</strong> 63 km/h</div>
+                        <div class="trajet-detail"><strong>Arrêts :</strong> 4</div>
+                    </div>
+                    <div class="trajet-lieux">
+                        <div class="lieu"><span class="lieu-dot dot-depart"></span> Entrepôt Gatineau</div>
+                        <div class="lieu"><span class="lieu-dot dot-arrivee"></span> Montréal — Dorval</div>
+                    </div>
+                </div>
+                
+                <!-- Trajet 5 -->
+                <div class="trajet-card" onclick="selectTrajet(this, 4)">
+                    <div class="trajet-header">
+                        <span class="trajet-date">📅 1 août 2026 — 11:20</span>
+                        <span class="trajet-badge badge-encours">🔄 En cours</span>
+                    </div>
+                    <div class="trajet-details">
+                        <div class="trajet-detail"><strong>Durée :</strong> 0h 48min</div>
+                        <div class="trajet-detail"><strong>Distance :</strong> 32.1 km</div>
+                        <div class="trajet-detail"><strong>Vit. moy :</strong> 40 km/h</div>
+                        <div class="trajet-detail"><strong>Arrêts :</strong> 1</div>
+                    </div>
+                    <div class="trajet-lieux">
+                        <div class="lieu"><span class="lieu-dot dot-depart"></span> Dépôt Hull</div>
+                        <div class="lieu"><span class="lieu-dot dot-arrivee"></span> En transit...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="pagination">
+                <button>◀</button>
+                <button class="active">1</button>
+                <button>2</button>
+                <button>3</button>
+                <button>▶</button>
+                <span>| 5 trajets / page — Total : 12</span>
+            </div>
+        </div>
+        
+        <!-- Panel droit : Carte -->
+        <div class="panel-carte">
+            <div class="carte-header">
+                <span class="carte-titre">🗺️ Trajet : Entrepôt Gatineau → Ottawa Centre (5 août 2026)</span>
+                <div class="carte-actions">
+                    <button class="btn-action active" onclick="toggleVitesse(this)">🌈 Vitesse</button>
+                    <button class="btn-action" onclick="toggleAnimation(this)">▶️ Animer</button>
+                    <button class="btn-action" onclick="toggleArrets(this)">📍 Arrêts</button>
+                </div>
+            </div>
+            
+            <div style="position: relative; flex: 1;">
+                <div id="map"></div>
+                
+                <!-- Légende vitesse -->
+                <div class="legende-vitesse">
+                    <div class="legende-titre">Vitesse (km/h)</div>
+                    <div class="legende-item"><span class="legende-color" style="background: #4caf50;"></span> 0 – 30</div>
+                    <div class="legende-item"><span class="legende-color" style="background: #ffeb3b;"></span> 30 – 60</div>
+                    <div class="legende-item"><span class="legende-color" style="background: #ff9800;"></span> 60 – 90</div>
+                    <div class="legende-item"><span class="legende-color" style="background: #f44336;"></span> 90+</div>
+                </div>
+            </div>
+            
+            <!-- Stats bar -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value">87.3 km</div>
+                    <div class="stat-label">Distance</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">1h 42min</div>
+                    <div class="stat-label">Durée</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">51 km/h</div>
+                    <div class="stat-label">Vitesse moy.</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">78 km/h</div>
+                    <div class="stat-label">Vitesse max</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">Arrêts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">12 min</div>
+                    <div class="stat-label">Temps arrêt</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">4.2 L</div>
+                    <div class="stat-label">Conso. est.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialisation carte
+        const map = L.map('map').setView([45.44, -75.70], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap | GeoTrack GEO-12'
+        }).addTo(map);
+        
+        // Points du trajet simulé (Gatineau → Ottawa Centre)
+        const trajetPoints = [
+            [45.4765, -75.7013],  // Entrepôt Gatineau
+            [45.4720, -75.6950],
+            [45.4680, -75.6880],
+            [45.4640, -75.6800],
+            [45.4590, -75.6720],
+            [45.4540, -75.6650],
+            [45.4500, -75.6580],  // Arrêt 1
+            [45.4460, -75.6500],
+            [45.4420, -75.6420],
+            [45.4380, -75.6340],
+            [45.4340, -75.6260],
+            [45.4300, -75.6180],
+            [45.4270, -75.6100],  // Arrêt 2
+            [45.4240, -75.6020],
+            [45.4220, -75.5950],
+            [45.4210, -75.5880],
+            [45.4200, -75.5810],
+            [45.4195, -75.5740],
+            [45.4190, -75.5680],
+            [45.4215, -75.5620],
+            [45.4230, -75.5560],
+            [45.4250, -75.5500],
+            [45.4265, -75.5440],
+            [45.4280, -75.5380],
+            [45.4300, -75.5320],
+            [45.4225, -75.6980]   // Ottawa Centre (arrivée)
+        ];
+        
+        // Vitesses simulées pour chaque segment (gradient couleur)
+        const vitesses = [0, 25, 35, 50, 55, 60, 0, 45, 55, 65, 70, 75, 0, 50, 60, 65, 70, 72, 75, 70, 65, 55, 45, 35, 25, 0];
+        
+        // Couleur selon vitesse
+        function couleurVitesse(v) {
+            if (v <= 30) return '#4caf50';
+            if (v <= 60) return '#ffeb3b';
+            if (v <= 90) return '#ff9800';
+            return '#f44336';
+        }
+        
+        // Dessiner polyline avec gradient vitesse
+        function dessinerTrajet() {
+            for (let i = 0; i < trajetPoints.length - 1; i++) {
+                L.polyline([trajetPoints[i], trajetPoints[i + 1]], {
+                    color: couleurVitesse(vitesses[i]),
+                    weight: 5,
+                    opacity: 0.85
+                }).addTo(map);
+            }
+        }
+        
+        // Marqueurs départ/arrivée
+        const iconDepart = L.divIcon({
+            html: '<div style="background:#4caf50;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">A</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+        });
+        
+        const iconArrivee = L.divIcon({
+            html: '<div style="background:#f44336;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">B</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+        });
+        
+        L.marker(trajetPoints[0], { icon: iconDepart })
+            .addTo(map)
+            .bindPopup('<b>🟢 Départ</b><br>Entrepôt Gatineau<br><small>08:15 — 5 août 2026</small>');
+        
+        L.marker(trajetPoints[trajetPoints.length - 1], { icon: iconArrivee })
+            .addTo(map)
+            .bindPopup('<b>🔴 Arrivée</b><br>Ottawa Centre<br><small>09:57 — 5 août 2026</small>');
+        
+        // Marqueurs d'arrêts
+        const arrets = [
+            { pos: trajetPoints[6], nom: 'Arrêt 1 — Station-service', duree: '5 min', heure: '08:38' },
+            { pos: trajetPoints[12], nom: 'Arrêt 2 — Livraison partielle', duree: '7 min', heure: '09:12' }
+        ];
+        
+        arrets.forEach((arret, i) => {
+            const iconArret = L.divIcon({
+                html: `<div style="background:#ff9800;color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);">${i+1}</div>`,
+                iconSize: [22, 22],
+                iconAnchor: [11, 11]
+            });
+            L.marker(arret.pos, { icon: iconArret })
+                .addTo(map)
+                .bindPopup(`<b>⏸️ ${arret.nom}</b><br>Durée : ${arret.duree}<br><small>${arret.heure}</small>`);
+        });
+        
+        dessinerTrajet();
+        
+        // Fit bounds
+        const bounds = L.latLngBounds(trajetPoints);
+        map.fitBounds(bounds, { padding: [30, 30] });
+        
+        // Fonctions interactives
+        function selectTrajet(el, index) {
+            document.querySelectorAll('.trajet-card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+        }
+        
+        function toggleVitesse(btn) { btn.classList.toggle('active'); }
+        function toggleAnimation(btn) { btn.classList.toggle('active'); }
+        function toggleArrets(btn) { btn.classList.toggle('active'); }
+        
+        function filtrer() {
+            alert('Filtres appliqués !\nVéhicule : TRK-2024-001\nPériode : 28 juil. — 5 août 2026\n12 trajets trouvés.');
+        }
+        
+        function exportCSV() {
+            alert('📥 Export CSV déclenché !\nFichier : trajets_TRK-2024-001_2026-07-28_2026-08-05.csv\n12 trajets exportés.');
+        }
+    </script>
+</body>
+</html>
