@@ -1,6 +1,5 @@
 using System;
 using Xunit;
-using FluentAssertions;
 using System.Collections.Generic;
 
 // =============================================================================
@@ -136,7 +135,7 @@ namespace GeoTrack.Api.Tests
             var resultat = zone.EstValide();
 
             // Assert
-            resultat.Should().BeTrue("une zone cercle avec coordonnées valides doit être valide");
+            Assert.True(resultat, "une zone cercle avec coordonnées valides doit être valide");
         }
 
         [Fact]
@@ -157,7 +156,7 @@ namespace GeoTrack.Api.Tests
             var resultat = zone.EstValide();
 
             // Assert
-            resultat.Should().BeFalse("une zone sans nom doit être invalide");
+            Assert.False(resultat, "une zone sans nom doit être invalide");
         }
 
         [Fact]
@@ -177,7 +176,7 @@ namespace GeoTrack.Api.Tests
             var resultat = zone.EstValide();
 
             // Assert
-            resultat.Should().BeFalse("latitude > 90 doit être invalide");
+            Assert.False(resultat, "latitude > 90 doit être invalide");
         }
 
         [Fact]
@@ -197,7 +196,7 @@ namespace GeoTrack.Api.Tests
             var resultat = zone.EstValide();
 
             // Assert
-            resultat.Should().BeFalse("un rayon négatif doit être invalide");
+            Assert.False(resultat, "un rayon négatif doit être invalide");
         }
 
         [Fact]
@@ -215,9 +214,9 @@ namespace GeoTrack.Api.Tests
             };
 
             // Assert
-            zone.TypeZone.Should().Be(TypeZone.Exclusion);
-            zone.EstActive.Should().BeTrue("une zone est active par défaut");
-            zone.EstSupprime.Should().BeFalse("une zone n'est pas supprimée par défaut");
+            Assert.Equal(TypeZone.Exclusion, zone.TypeZone);
+            Assert.True(zone.EstActive, "une zone est active par défaut");
+            Assert.False(zone.EstSupprime, "une zone n'est pas supprimée par défaut");
         }
 
         [Fact]
@@ -231,8 +230,8 @@ namespace GeoTrack.Api.Tests
             zone.DateModification = DateTime.UtcNow;
 
             // Assert
-            zone.EstSupprime.Should().BeTrue();
-            zone.DateModification.Should().NotBeNull();
+            Assert.True(zone.EstSupprime);
+            Assert.NotNull(zone.DateModification);
         }
     }
 
@@ -255,7 +254,7 @@ namespace GeoTrack.Api.Tests
             };
 
             // Act & Assert
-            regle.SeuilVitesseValide().Should().BeTrue("50 km/h est un seuil valide");
+            Assert.True(regle.SeuilVitesseValide(), "50 km/h est un seuil valide");
         }
 
         [Fact]
@@ -269,7 +268,7 @@ namespace GeoTrack.Api.Tests
             };
 
             // Act & Assert
-            regle.SeuilVitesseValide().Should().BeFalse("vitesse négative invalide");
+            Assert.False(regle.SeuilVitesseValide(), "vitesse négative invalide");
         }
 
         [Fact]
@@ -284,21 +283,21 @@ namespace GeoTrack.Api.Tests
             };
 
             // Act & Assert
-            regle.SeuilVitesseValide().Should().BeTrue("pas de seuil requis pour Entree");
+            Assert.True(regle.SeuilVitesseValide(), "pas de seuil requis pour Entree");
         }
 
         [Fact]
         public void RegleAlerte_AntiSpamDefaut_DoitEtre5Minutes()
         {
             var regle = new RegleAlerte();
-            regle.DelaiAntiSpamMinutes.Should().Be(5);
+            Assert.Equal(5, regle.DelaiAntiSpamMinutes);
         }
 
         [Fact]
         public void RegleAlerte_Severite_DoitEtreConfigurable()
         {
             var regle = new RegleAlerte { Severite = NiveauSeverite.Critique };
-            regle.Severite.Should().Be(NiveauSeverite.Critique);
+            Assert.Equal(NiveauSeverite.Critique, regle.Severite);
         }
     }
 
@@ -322,7 +321,7 @@ namespace GeoTrack.Api.Tests
             };
 
             // Act & Assert
-            evenement.PositionValide().Should().BeTrue();
+            Assert.True(evenement.PositionValide());
         }
 
         [Fact]
@@ -334,21 +333,21 @@ namespace GeoTrack.Api.Tests
                 Longitude = -75.6972
             };
 
-            evenement.PositionValide().Should().BeFalse();
+            Assert.False(evenement.PositionValide());
         }
 
         [Fact]
         public void HistoriqueEvenement_AlerteEnvoyee_DefautFalse()
         {
             var evenement = new HistoriqueEvenement();
-            evenement.AlerteEnvoyee.Should().BeFalse();
+            Assert.False(evenement.AlerteEnvoyee);
         }
 
         [Fact]
         public void HistoriqueEvenement_DateEvenement_DoitEtreDefinie()
         {
             var evenement = new HistoriqueEvenement();
-            evenement.DateEvenement.Should().NotBe(default(DateTime));
+            Assert.NotEqual(default(DateTime), evenement.DateEvenement);
         }
     }
 
@@ -368,7 +367,7 @@ namespace GeoTrack.Api.Tests
                 TypeAppareil = TypeAppareil.Smartphone
             };
 
-            appareil.IdentifiantValide().Should().BeTrue();
+            Assert.True(appareil.IdentifiantValide());
         }
 
         [Fact]
@@ -379,15 +378,15 @@ namespace GeoTrack.Api.Tests
                 IdentifiantUnique = "ABC" // moins de 8 caractères
             };
 
-            appareil.IdentifiantValide().Should().BeFalse();
+            Assert.False(appareil.IdentifiantValide());
         }
 
         [Fact]
         public void Appareil_EstActifParDefaut()
         {
             var appareil = new Appareil();
-            appareil.EstActif.Should().BeTrue();
-            appareil.EstSupprime.Should().BeFalse();
+            Assert.True(appareil.EstActif);
+            Assert.False(appareil.EstSupprime);
         }
     }
 }
