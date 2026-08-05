@@ -1,0 +1,246 @@
+@startuml GEO-34 - Diagramme de séquence - Gestion des zones géographiques (Geofencing)
+
+' ============================================================
+' GEO-34 - Diagramme de séquence
+' Projet : GeoTrack - GEN1423 - Groupe 8
+' Story : GEO-9 - Zone géographique
+' Auteur : Sory Fofana
+' Date : 2026-08-05
+' ============================================================
+
+skinparam style strictuml
+skinparam sequenceMessageAlign center
+skinparam maxMessageSize 200
+
+title **GEO-34 — Diagramme de séquence\nCréation et surveillance d'une zone géographique**
+
+actor "Gestionnaire\nde flotte" as User
+participant "Interface Web\n(Frontend)" as UI
+participant "ZoneController\n(API REST)" as API
+participant "ZoneService\n(Logique métier)" as Service
+participant "GeofenceEngine\n(Détection)" as Engine
+database "Base de données\n(SQL Server)" as DB
+participant "NotificationService\n(Alertes)" as Notif
+participant "GpsReceiver\n(Réception GPS)" as GPS
+
+== SCÉNARIO 1 : Création d'une zone géographique ==
+
+User -> UI : Dessine un polygone sur la carte
+activate UI
+
+UI -> UI : Valide le formulaire\n(nom, type, véhicules)
+
+UI -> API : POST /api/zones\n{ nom, type, polygone[], vehiculeIds[] }
+activate API
+
+API -> API : Valide les données entrantes\n(DataAnnotations)
+
+alt #LightCoral Données invalides
+    API --> UI : 400 Bad Request\n{ erreurs[] }
+    UI --> User : Affiche erreurs de validation
+else #LightGreen Données valides
+    API -> Service : CreerZoneAsync(CreateZoneDto)
+    activate Service
+
+    Service -> Service : Valide règles métier\n- Polygone fermé (≥3 sommets)\n- Nom unique\n- Surface ≤ 10 000 km²
+
+    alt #LightCoral Règle métier violée
+        Service --> API : throw BusinessRuleException
+        API --> UI : 422 Unprocessable Entity\n{ regle, message }
+        UI --> User : Affiche erreur métier
+    else #LightGreen Règles respectées
+        Service -> DB : INSERT INTO Zones\n(Id, Nom, Type, Polygone, Active)
+        activate DB
+        DB --> Service : Zone créée (Id = guid)
+        deactivate DB
+
+        Service -> DB : INSERT INTO ZoneVehicules\n(ZoneId, VehiculeId) × N
+        activate DB
+        DB --> Service : Associations créées
+        deactivate DB
+
+        Service -> Engine : EnregistrerZone(zone)
+        activate Engine
+        Engine -> Engine : Indexe le polygone\n(R-Tree spatial)
+        Engine --> Service : Zone enregistrée
+        deactivate Engine
+
+        Service --> API : ZoneDto (id, nom, statut=active)
+        deactivate Service
+
+        API --> UI : 201 Created\n{ zone }
+        UI --> User : Toast "Zone créée avec succès"\n+ Zone affichée sur la carte
+    end
+end
+deactivate API
+deactivate UI
+
+== SCÉNARIO 2 : Détection de sortie de zone (temps réel) ==
+
+GPS -> Engine : NouvellePosition(vehiculeId, lat, lon, timestamp)
+activate Engine
+
+Engine -> Engine : Récupère les zones actives\nassociées au véhicule
+
+loop Pour chaque zone active du véhicule
+    Engine -> Engine : Point-in-Polygon test\n(Ray Casting Algorithm)
+
+    alt #LightCoral Véhicule HORS de la zone (type=inclusion)
+        Engine -> Engine : Vérifie état précédent\n(était-il dedans avant ?)
+
+        alt Transition DEDANS → DEHORS détectée
+            Engine -> DB : INSERT INTO Alertes\n(VehiculeId, ZoneId, Type=SORTIE,\nPosition, Timestamp)
+            activate DB
+            DB --> Engine : Alerte persistée
+            deactivate DB
+
+            Engine -> Notif : EnvoyerAlerte(alerteDto)
+            activate Notif
+            Notif -> Notif : Détermine destinataires\net canaux (email, push, SMS)
+            Notif --> Engine : Alerte envoyée
+            deactivate Notif
+
+            Engine -> UI : WebSocket push\n{ type: "ZONE_EXIT", vehiculeId, zoneId }
+            activate UI
+            UI -> UI : Affiche marqueur rouge\n+ notification temps réel
+            UI --> User : ⚠️ Alerte visuelle et sonore
+            deactivate UI
+        end
+
+    else #LightBlue Véhicule HORS de la zone (type=exclusion)
+        Engine -> Engine : Zone d'exclusion :\nVéhicule ne doit PAS y entrer
+        note right : Pas d'alerte —\ncomportement normal
+
+    else #LightGreen Véhicule DANS la zone (type=inclusion)
+        Engine -> Engine : Comportement normal\nMet à jour position courante
+    end
+end
+
+deactivate Engine
+
+== SCÉNARIO 3 : Entrée dans une zone d'exclusion ==
+
+GPS -> Engine : NouvellePosition(vehiculeId, lat, lon, timestamp)
+activate Engine
+
+Engine -> Engine : Point-in-Polygon test
+
+alt #LightCoral Véhicule ENTRE dans zone d'exclusion
+    Engine -> Engine : Transition DEHORS → DEDANS\n(zone type=exclusion)
+
+    Engine -> DB : INSERT INTO Alertes\n(Type=ENTREE_ZONE_INTERDITE)
+    activate DB
+    DB --> Engine : Alerte persistée
+    deactivate DB
+
+    Engine -> Notif : EnvoyerAlerte(alerteDto)\n[Priorité: HAUTE]
+    activate Notif
+    Notif --> Engine : Alerte envoyée
+    deactivate Notif
+
+    Engine -> UI : WebSocket push\n{ type: "EXCLUSION_ZONE_ENTRY" }
+    activate UI
+    UI --> User : 🚨 ALERTE CRITIQUE\nVéhicule en zone interdite
+    deactivate UI
+end
+
+deactivate Engine
+
+== SCÉNARIO 4 : Modification d'une zone existante ==
+
+User -> UI : Modifie le polygone ou les paramètres
+activate UI
+
+UI -> API : PUT /api/zones/{id}\n{ nom?, polygone?, vehiculeIds? }
+activate API
+
+API -> Service : ModifierZoneAsync(id, UpdateZoneDto)
+activate Service
+
+Service -> DB : UPDATE Zones SET ...\nWHERE Id = @id
+activate DB
+DB --> Service : Zone mise à jour
+deactivate DB
+
+Service -> Engine : MettreAJourZone(zone)
+activate Engine
+Engine -> Engine : Réindexe le polygone
+Engine --> Service : OK
+deactivate Engine
+
+Service --> API : ZoneDto (mise à jour)
+deactivate Service
+
+API --> UI : 200 OK { zone }
+UI --> User : Toast "Zone modifiée"
+deactivate API
+deactivate UI
+
+== SCÉNARIO 5 : Suppression d'une zone ==
+
+User -> UI : Clique "Supprimer la zone"
+activate UI
+
+UI -> UI : Dialogue de confirmation
+
+UI -> API : DELETE /api/zones/{id}
+activate API
+
+API -> Service : SupprimerZoneAsync(id)
+activate Service
+
+Service -> DB : UPDATE Zones\nSET Active = false, DeletedAt = NOW()\nWHERE Id = @id
+activate DB
+note right : Soft delete —\nconserve l'historique
+DB --> Service : OK
+deactivate DB
+
+Service -> Engine : DesenregistrerZone(id)
+activate Engine
+Engine -> Engine : Retire du R-Tree
+Engine --> Service : OK
+deactivate Engine
+
+Service --> API : NoContent
+deactivate Service
+
+API --> UI : 204 No Content
+UI --> User : Zone retirée de la carte
+deactivate API
+deactivate UI
+
+== NOTES TECHNIQUES ==
+
+note over Engine
+  **Algorithme Point-in-Polygon :**
+  Ray Casting — O(n) par test où n = nombre de sommets
+  Optimisé avec R-Tree pour filtrer les zones candidates — O(log n)
+
+  **Fréquence de vérification :**
+  À chaque position GPS reçue (toutes les 5-30 secondes)
+
+  **Tolérance :**
+  Marge configurable de 50m autour des frontières
+  pour éviter les faux positifs (GPS jitter)
+end note
+
+note over DB
+  **Tables impliquées :**
+  - Zones (Id, Nom, Type, Polygone, Active, CreatedAt)
+  - ZoneVehicules (ZoneId, VehiculeId)
+  - Alertes (Id, VehiculeId, ZoneId, Type, Position, Timestamp)
+  - Positions (Id, VehiculeId, Lat, Lon, Timestamp)
+end note
+
+note over Notif
+  **Canaux de notification :**
+  - Email (SendGrid)
+  - Push notification (SignalR/WebSocket)
+  - SMS (optionnel, Twilio)
+
+  **Règles anti-spam :**
+  - Max 1 alerte par zone par véhicule par 5 min
+  - Regroupement si multiples sorties simultanées
+end note
+
+@enduml
