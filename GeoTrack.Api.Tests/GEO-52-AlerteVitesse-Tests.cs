@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
-using FluentAssertions;
-using Moq;
 
 namespace GeoTrack.Api.Tests
 {
@@ -54,6 +53,43 @@ namespace GeoTrack.Api.Tests
         void EnvoyerSms(string message);
         void EnvoyerEmail(string destinataire, string message);
         void EnvoyerDashboard(string message, SeveriteAlerte severite);
+    }
+
+    /// <summary>
+    /// Stub manuel de INotificationService : enregistre chaque appel pour
+    /// permettre de compter les invocations (remplace Mock/Verify).
+    /// </summary>
+    public class StubNotificationService : INotificationService
+    {
+        public List<(string Message, SeveriteAlerte Severite)> AppelsPush { get; } = new();
+        public List<string> AppelsSms { get; } = new();
+        public List<(string Destinataire, string Message)> AppelsEmail { get; } = new();
+        public List<(string Message, SeveriteAlerte Severite)> AppelsDashboard { get; } = new();
+
+        // Nombre total d'appels, toutes sévérités confondues
+        public int NbPush      => AppelsPush.Count;
+        public int NbSms       => AppelsSms.Count;
+        public int NbEmail     => AppelsEmail.Count;
+        public int NbDashboard => AppelsDashboard.Count;
+
+        // Nombre d'appels pour une sévérité donnée
+        public int NbPushPour(SeveriteAlerte severite)
+            => AppelsPush.Count(a => a.Severite == severite);
+
+        public int NbDashboardPour(SeveriteAlerte severite)
+            => AppelsDashboard.Count(a => a.Severite == severite);
+
+        public void EnvoyerPush(string message, SeveriteAlerte severite)
+            => AppelsPush.Add((message, severite));
+
+        public void EnvoyerSms(string message)
+            => AppelsSms.Add(message);
+
+        public void EnvoyerEmail(string destinataire, string message)
+            => AppelsEmail.Add((destinataire, message));
+
+        public void EnvoyerDashboard(string message, SeveriteAlerte severite)
+            => AppelsDashboard.Add((message, severite));
     }
 
     public class AlerteVitesseService
@@ -203,7 +239,7 @@ namespace GeoTrack.Api.Tests
     public class AlerteVitesseServiceTests
     {
         private readonly ConfigurationSeuil   _config;
-        private readonly Mock<INotificationService> _mockNotif;
+        private readonly StubNotificationService _notif;
         private readonly AlerteVitesseService _service;
 
         public AlerteVitesseServiceTests()
@@ -219,8 +255,8 @@ namespace GeoTrack.Api.Tests
                 MaxAlertesJour     = 50,
                 ToleranceGps       = 2.0
             };
-            _mockNotif = new Mock<INotificationService>();
-            _service   = new AlerteVitesseService(_config, _mockNotif.Object);
+            _notif   = new StubNotificationService();
+            _service = new AlerteVitesseService(_config, _notif);
         }
 
         [Fact]
@@ -231,10 +267,10 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(45.0);
 
             // Assert
-            resultat.Severite.Should().Be(SeveriteAlerte.Aucune);
-            resultat.AlerteEnvoyee.Should().BeFalse();
-            resultat.NouvelEtat.Should().Be(EtatSurveillance.Normal);
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), It.IsAny<SeveriteAlerte>()), Times.Never);
+            Assert.Equal(SeveriteAlerte.Aucune, resultat.Severite);
+            Assert.False(resultat.AlerteEnvoyee);
+            Assert.Equal(EtatSurveillance.Normal, resultat.NouvelEtat);
+            Assert.Equal(0, _notif.NbPush);
         }
 
         [Fact]
@@ -245,9 +281,9 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(58.0);
 
             // Assert
-            resultat.Severite.Should().Be(SeveriteAlerte.Avertissement);
-            resultat.AlerteEnvoyee.Should().BeFalse();
-            resultat.NouvelEtat.Should().Be(EtatSurveillance.EnObservation);
+            Assert.Equal(SeveriteAlerte.Avertissement, resultat.Severite);
+            Assert.False(resultat.AlerteEnvoyee);
+            Assert.Equal(EtatSurveillance.EnObservation, resultat.NouvelEtat);
         }
 
         [Fact]
@@ -261,10 +297,10 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(62.0);
 
             // Assert
-            resultat.Severite.Should().Be(SeveriteAlerte.Alerte);
-            resultat.AlerteEnvoyee.Should().BeTrue();
-            resultat.NouvelEtat.Should().Be(EtatSurveillance.Declenchee);
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), SeveriteAlerte.Alerte), Times.Once);
+            Assert.Equal(SeveriteAlerte.Alerte, resultat.Severite);
+            Assert.True(resultat.AlerteEnvoyee);
+            Assert.Equal(EtatSurveillance.Declenchee, resultat.NouvelEtat);
+            Assert.Equal(1, _notif.NbPushPour(SeveriteAlerte.Alerte));
         }
 
         [Fact]
@@ -275,12 +311,12 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(95.0);
 
             // Assert
-            resultat.Severite.Should().Be(SeveriteAlerte.Critique);
-            resultat.AlerteEnvoyee.Should().BeTrue();
-            resultat.NouvelEtat.Should().Be(EtatSurveillance.Escaladee);
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), SeveriteAlerte.Critique), Times.Once);
-            _mockNotif.Verify(n => n.EnvoyerSms(It.IsAny<string>()), Times.Once);
-            _mockNotif.Verify(n => n.EnvoyerEmail(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            Assert.Equal(SeveriteAlerte.Critique, resultat.Severite);
+            Assert.True(resultat.AlerteEnvoyee);
+            Assert.Equal(EtatSurveillance.Escaladee, resultat.NouvelEtat);
+            Assert.Equal(1, _notif.NbPushPour(SeveriteAlerte.Critique));
+            Assert.Equal(1, _notif.NbSms);
+            Assert.Equal(1, _notif.NbEmail);
         }
 
         [Fact]
@@ -296,8 +332,8 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(45.0);
 
             // Assert
-            resultat.Severite.Should().Be(SeveriteAlerte.Aucune);
-            resultat.NouvelEtat.Should().Be(EtatSurveillance.Normal);
+            Assert.Equal(SeveriteAlerte.Aucune, resultat.Severite);
+            Assert.Equal(EtatSurveillance.Normal, resultat.NouvelEtat);
         }
 
         [Fact]
@@ -307,13 +343,13 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(52.0);
 
             // Assert : 52 - 2 = 50 = SeuilAlerte → pas d'alerte
-            resultat.Severite.Should().Be(SeveriteAlerte.Aucune);
+            Assert.Equal(SeveriteAlerte.Aucune, resultat.Severite);
         }
 
         [Fact]
         public void EvaluerVitesse_EtatInitial_EstNormal()
         {
-            _service.EtatCourant.Should().Be(EtatSurveillance.Normal);
+            Assert.Equal(EtatSurveillance.Normal, _service.EtatCourant);
         }
 
         [Fact]
@@ -323,7 +359,7 @@ namespace GeoTrack.Api.Tests
             var resultat = _service.EvaluerVitesse(76.0);
 
             // Assert : pas critique (74 < 75), mais avertissement
-            resultat.Severite.Should().NotBe(SeveriteAlerte.Critique);
+            Assert.NotEqual(SeveriteAlerte.Critique, resultat.Severite);
         }
     }
 
@@ -333,7 +369,7 @@ namespace GeoTrack.Api.Tests
     public class AntiSpamTests
     {
         private readonly ConfigurationSeuil        _config;
-        private readonly Mock<INotificationService> _mockNotif;
+        private readonly StubNotificationService   _notif;
         private readonly AlerteVitesseService      _service;
 
         public AntiSpamTests()
@@ -346,8 +382,8 @@ namespace GeoTrack.Api.Tests
                 MaxAlertesJour  = 50,
                 ToleranceGps    = 0.0
             };
-            _mockNotif = new Mock<INotificationService>();
-            _service   = new AlerteVitesseService(_config, _mockNotif.Object);
+            _notif   = new StubNotificationService();
+            _service = new AlerteVitesseService(_config, _notif);
         }
 
         [Fact]
@@ -360,7 +396,7 @@ namespace GeoTrack.Api.Tests
             var bloque = !_service.VerifierAntiSpam();
 
             // Assert
-            bloque.Should().BeTrue();
+            Assert.True(bloque);
         }
 
         [Fact]
@@ -373,7 +409,7 @@ namespace GeoTrack.Api.Tests
             var autorise = _service.VerifierAntiSpam();
 
             // Assert
-            autorise.Should().BeTrue();
+            Assert.True(autorise);
         }
 
         [Fact]
@@ -386,7 +422,7 @@ namespace GeoTrack.Api.Tests
             var bloque = !_service.VerifierAntiSpam();
 
             // Assert
-            bloque.Should().BeTrue();
+            Assert.True(bloque);
         }
 
         [Fact]
@@ -399,7 +435,7 @@ namespace GeoTrack.Api.Tests
             var bloque = !_service.VerifierAntiSpam();
 
             // Assert
-            bloque.Should().BeTrue();
+            Assert.True(bloque);
         }
 
         [Fact]
@@ -413,7 +449,7 @@ namespace GeoTrack.Api.Tests
             _service.ResetContexte();
 
             // Assert
-            _service.VerifierAntiSpam().Should().BeTrue();
+            Assert.True(_service.VerifierAntiSpam());
         }
 
         [Fact]
@@ -424,7 +460,7 @@ namespace GeoTrack.Api.Tests
             var autorise = _service.VerifierAntiSpam();
 
             // Assert
-            autorise.Should().BeTrue();
+            Assert.True(autorise);
         }
     }
 
@@ -438,10 +474,14 @@ namespace GeoTrack.Api.Tests
         {
             var config = new ConfigurationSeuil();
 
-            config.SeuilAlerte.Should().BeLessThan(config.SeuilAvertissement);
-            config.SeuilAvertissement.Should().BeLessThan(config.SeuilCritique);
-            config.EchantillonsRequis.Should().BeGreaterThan(0);
-            config.CooldownMinutes.Should().BeGreaterThan(0);
+            Assert.True(config.SeuilAlerte < config.SeuilAvertissement,
+                "SeuilAlerte doit etre inferieur a SeuilAvertissement");
+            Assert.True(config.SeuilAvertissement < config.SeuilCritique,
+                "SeuilAvertissement doit etre inferieur a SeuilCritique");
+            Assert.True(config.EchantillonsRequis > 0,
+                "EchantillonsRequis doit etre strictement positif");
+            Assert.True(config.CooldownMinutes > 0,
+                "CooldownMinutes doit etre strictement positif");
         }
 
         [Fact]
@@ -453,7 +493,8 @@ namespace GeoTrack.Api.Tests
                 SeuilAvertissement = 55.0
             };
 
-            config.SeuilAlerte.Should().BeLessThan(config.SeuilAvertissement);
+            Assert.True(config.SeuilAlerte < config.SeuilAvertissement,
+                "SeuilAlerte doit etre inferieur a SeuilAvertissement");
         }
 
         [Fact]
@@ -465,7 +506,8 @@ namespace GeoTrack.Api.Tests
                 SeuilCritique      = 75.0
             };
 
-            config.SeuilCritique.Should().BeGreaterThan(config.SeuilAvertissement);
+            Assert.True(config.SeuilCritique > config.SeuilAvertissement,
+                "SeuilCritique doit etre superieur a SeuilAvertissement");
         }
 
         [Fact]
@@ -473,8 +515,10 @@ namespace GeoTrack.Api.Tests
         {
             var config = new ConfigurationSeuil();
 
-            config.MaxAlertesHeure.Should().BeGreaterThan(0);
-            config.MaxAlertesJour.Should().BeGreaterThan(config.MaxAlertesHeure);
+            Assert.True(config.MaxAlertesHeure > 0,
+                "MaxAlertesHeure doit etre strictement positif");
+            Assert.True(config.MaxAlertesJour > config.MaxAlertesHeure,
+                "MaxAlertesJour doit etre superieur a MaxAlertesHeure");
         }
     }
 
@@ -483,7 +527,7 @@ namespace GeoTrack.Api.Tests
     // ============================================================
     public class NotificationTests
     {
-        private readonly Mock<INotificationService> _mockNotif;
+        private readonly StubNotificationService    _notif;
         private readonly AlerteVitesseService       _service;
 
         public NotificationTests()
@@ -494,13 +538,13 @@ namespace GeoTrack.Api.Tests
                 SeuilAlerte        = 50.0,
                 SeuilCritique      = 75.0,
                 EchantillonsRequis = 1,
-                CooldownMinutes    = 0,
+                CooldownMinutes    = 5,
                 MaxAlertesHeure    = 100,
                 MaxAlertesJour     = 1000,
                 ToleranceGps       = 0.0
             };
-            _mockNotif = new Mock<INotificationService>();
-            _service   = new AlerteVitesseService(config, _mockNotif.Object);
+            _notif   = new StubNotificationService();
+            _service = new AlerteVitesseService(config, _notif);
         }
 
         [Fact]
@@ -508,9 +552,9 @@ namespace GeoTrack.Api.Tests
         {
             _service.EvaluerVitesse(80.0);
 
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), SeveriteAlerte.Critique), Times.Once);
-            _mockNotif.Verify(n => n.EnvoyerSms(It.IsAny<string>()), Times.Once);
-            _mockNotif.Verify(n => n.EnvoyerEmail(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            Assert.Equal(1, _notif.NbPushPour(SeveriteAlerte.Critique));
+            Assert.Equal(1, _notif.NbSms);
+            Assert.Equal(1, _notif.NbEmail);
         }
 
         [Fact]
@@ -518,9 +562,9 @@ namespace GeoTrack.Api.Tests
         {
             _service.EvaluerVitesse(60.0);
 
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), SeveriteAlerte.Alerte), Times.Once);
-            _mockNotif.Verify(n => n.EnvoyerDashboard(It.IsAny<string>(), SeveriteAlerte.Alerte), Times.Once);
-            _mockNotif.Verify(n => n.EnvoyerSms(It.IsAny<string>()), Times.Never);
+            Assert.Equal(1, _notif.NbPushPour(SeveriteAlerte.Alerte));
+            Assert.Equal(1, _notif.NbDashboardPour(SeveriteAlerte.Alerte));
+            Assert.Equal(0, _notif.NbSms);
         }
 
         [Fact]
@@ -528,9 +572,9 @@ namespace GeoTrack.Api.Tests
         {
             _service.EvaluerVitesse(40.0);
 
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), It.IsAny<SeveriteAlerte>()), Times.Never);
-            _mockNotif.Verify(n => n.EnvoyerSms(It.IsAny<string>()), Times.Never);
-            _mockNotif.Verify(n => n.EnvoyerEmail(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+            Assert.Equal(0, _notif.NbPush);
+            Assert.Equal(0, _notif.NbSms);
+            Assert.Equal(0, _notif.NbEmail);
         }
 
         [Fact]
@@ -544,7 +588,7 @@ namespace GeoTrack.Api.Tests
             // Deuxième alerte bloquée
             _service.EvaluerVitesse(80.0);
 
-            _mockNotif.Verify(n => n.EnvoyerPush(It.IsAny<string>(), It.IsAny<SeveriteAlerte>()), Times.Once);
+            Assert.Equal(1, _notif.NbPush);
         }
     }
 }
