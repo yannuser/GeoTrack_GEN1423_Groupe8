@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEO-40 - Maquette Filtre Carte - GeoTrack</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; height: 100vh; overflow: hidden; }
+
+        /* SIDEBAR FILTRES */
+        .sidebar {
+            width: 320px;
+            background: #fff;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+        }
+        .sidebar-header {
+            background: #0052CC;
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-header h2 { font-size: 16px; font-weight: 600; }
+        .badge-count {
+            background: #FF5630;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* ACCORDEON */
+        .accordion { border-bottom: 1px solid #e8e8e8; }
+        .accordion-header {
+            padding: 14px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fafafa;
+            font-weight: 600;
+            font-size: 14px;
+            color: #172B4D;
+            transition: background 0.2s;
+        }
+        .accordion-header:hover { background: #f0f4ff; }
+        .accordion-header .icon { font-size: 16px; margin-right: 8px; }
+        .accordion-header .arrow { transition: transform 0.3s; font-size: 12px; color: #6B778C; }
+        .accordion-header.open .arrow { transform: rotate(180deg); }
+        .accordion-body { padding: 12px 20px 16px; display: none; }
+        .accordion-body.open { display: block; }
+
+        /* FILTRES */
+        .filter-group { margin-bottom: 12px; }
+        .filter-label { font-size: 12px; color: #6B778C; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-search {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #DFE1E6;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .filter-search:focus { border-color: #0052CC; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 6px; }
+        .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #172B4D; cursor: pointer; }
+        .checkbox-item input[type="checkbox"] { accent-color: #0052CC; width: 14px; height: 14px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .dot-green { background: #36B37E; }
+        .dot-orange { background: #FF8B00; }
+        .dot-red { background: #FF5630; }
+        .dot-gray { background: #97A0AF; }
+        .dot-blue { background: #0052CC; }
+
+        /* SLIDER */
+        .slider-container { margin-top: 6px; }
+        .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .slider-row label { font-size: 12px; color: #6B778C; width: 80px; }
+        .slider-row input[type="range"] { flex: 1; accent-color: #0052CC; }
+        .slider-row span { font-size: 12px; font-weight: 600; color: #0052CC; width: 50px; text-align: right; }
+
+        /* SELECT */
+        .filter-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #DFE1E6;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            background: white;
+            color: #172B4D;
+        }
+        .filter-select:focus { border-color: #0052CC; }
+
+        /* TOGGLE */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .toggle-label { font-size: 13px; color: #172B4D; }
+        .toggle { position: relative; width: 40px; height: 22px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: #DFE1E6; border-radius: 22px; transition: 0.3s;
+        }
+        .toggle-slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px;
+            left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s;
+        }
+        .toggle input:checked + .toggle-slider { background: #0052CC; }
+        .toggle input:checked + .toggle-slider:before { transform: translateX(18px); }
+
+        /* SEVERITY BADGES */
+        .severity-group { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+        .severity-badge {
+            padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+            cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+        }
+        .severity-badge.warning { background: #FFF0B3; color: #FF8B00; border-color: #FF8B00; }
+        .severity-badge.alert { background: #FFEBE6; color: #FF5630; border-color: #FF5630; }
+        .severity-badge.critical { background: #FFD2CC; color: #BF2600; border-color: #BF2600; }
+        .severity-badge.inactive { opacity: 0.4; border-color: transparent; }
+
+        /* DATE RANGE */
+        .date-row { display: flex; gap: 8px; }
+        .date-row input[type="date"] {
+            flex: 1; padding: 7px 10px; border: 1px solid #DFE1E6;
+            border-radius: 4px; font-size: 12px; outline: none;
+        }
+        .date-row input[type="date"]:focus { border-color: #0052CC; }
+
+        /* BOUTONS */
+        .btn-group { padding: 16px 20px; display: flex; gap: 10px; border-top: 1px solid #e8e8e8; }
+        .btn-apply {
+            flex: 1; padding: 10px; background: #0052CC; color: white;
+            border: none; border-radius: 4px; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .btn-apply:hover { background: #0747A6; }
+        .btn-reset {
+            padding: 10px 16px; background: white; color: #6B778C;
+            border: 1px solid #DFE1E6; border-radius: 4px; font-size: 14px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn-reset:hover { background: #f4f5f7; color: #172B4D; }
+
+        /* CARTE */
+        .map-container { flex: 1; position: relative; background: #e8edf2; }
+        .map-placeholder {
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #e8edf2 0%, #d0d8e4 100%);
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 12px;
+        }
+        .map-grid {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-image:
+                linear-gradient(rgba(0,82,204,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,82,204,0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        .map-label { font-size: 18px; color: #6B778C; font-weight: 600; z-index: 1; }
+        .map-sublabel { font-size: 13px; color: #97A0AF; z-index: 1; }
+
+        /* VEHICULE MARKERS */
+        .vehicle-marker {
+            position: absolute;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            cursor: pointer;
+            transition: transform 0.2s;
+            z-index: 5;
+        }
+        .vehicle-marker:hover { transform: scale(1.2); }
+        .vm-green { background: #36B37E; top: 30%; left: 25%; }
+        .vm-orange { background: #FF8B00; top: 50%; left: 55%; }
+        .vm-red { background: #FF5630; top: 20%; left: 65%; }
+        .vm-blue { background: #0052CC; top: 65%; left: 35%; }
+        .vm-gray { background: #97A0AF; top: 45%; left: 75%; }
+        .vm-green2 { background: #36B37E; top: 70%; left: 60%; }
+
+        /* TOOLTIP VEHICULE */
+        .vehicle-tooltip {
+            position: absolute;
+            background: white;
+            border-radius: 6px;
+            padding: 10px 14px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            font-size: 12px;
+            min-width: 160px;
+            z-index: 10;
+            top: 18%; left: 20%;
+            border-left: 4px solid #36B37E;
+        }
+        .tooltip-title { font-weight: 700; color: #172B4D; font-size: 13px; margin-bottom: 4px; }
+        .tooltip-row { display: flex; justify-content: space-between; color: #6B778C; margin-bottom: 2px; }
+        .tooltip-row span:last-child { color: #172B4D; font-weight: 500; }
+
+        /* BARRE SUPERIEURE CARTE */
+        .map-topbar {
+            position: absolute; top: 16px; left: 16px; right: 16px;
+            display: flex; gap: 10px; z-index: 6;
+        }
+        .map-search {
+            flex: 1; padding: 10px 16px;
+            background: white; border: none; border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            font-size: 14px; outline: none;
+        }
+        .map-btn {
+            padding: 10px 16px; background: white; border: none;
+            border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            cursor: pointer; font-size: 13px; font-weight: 600; color: #172B4D;
+            transition: background 0.2s;
+        }
+        .map-btn:hover { background: #f0f4ff; color: #0052CC; }
+        .map-btn.active { background: #0052CC; color: white; }
+
+        /* COMPTEUR BAS */
+        .map-bottombar {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: white; border-radius: 20px; padding: 8px 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            font-size: 13px; color: #172B4D; font-weight: 600;
+            display: flex; align-items: center; gap: 8px; z-index: 6;
+        }
+        .count-highlight { color: #0052CC; font-size: 16px; font-weight: 700; }
+        .count-total { color: #97A0AF; font-weight: 400; }
+
+        /* LEGENDE */
+        .map-legend {
+            position: absolute; bottom: 16px; right: 16px;
+            background: white; border-radius: 8px; padding: 12px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12); z-index: 6;
+        }
+        .legend-title { font-size: 11px; font-weight: 700; color: #6B778C; text-transform: uppercase; margin-bottom: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #172B4D; margin-bottom: 4px; }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; height: 50vh; border-right: none; border-bottom: 1px solid #e0e0e0; }
+            body { flex-direction: column; }
+            .map-container { height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR FILTRES -->
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h2>🔍 Filtres Carte</h2>
+        <span class="badge-count" id="vehicleCount">6 véhicules</span>
+    </div>
+
+    <!-- FILTRE VEHICULE -->
+    <div class="accordion">
+        <div class="accordion-header open" onclick="toggleAccordion(this)">
+            <span><span class="icon">🚗</span>Filtre par véhicule</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body open">
+            <div class="filter-group">
+                <div class="filter-label">Recherche</div>
+                <input type="text" class="filter-search" placeholder="ID véhicule ou conducteur...">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Statut</div>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked>
+                        <span class="status-dot dot-green"></span> En mouvement
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked>
+                        <span class="status-dot dot-orange"></span> Ralenti
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked>
+                        <span class="status-dot dot-gray"></span> Arrêté
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox">
+                        <span class="status-dot dot-red"></span> En alerte
+                    </label>
+                </div>
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Type de véhicule</div>
+                <select class="filter-select">
+                    <option>Tous les types</option>
+                    <option>Camion</option>
+                    <option>Voiture</option>
+                    <option>Moto</option>
+                    <option>Bus</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Vitesse (km/h)</div>
+                <div class="slider-container">
+                    <div class="slider-row">
+                        <label>Min</label>
+                        <input type="range" min="0" max="130" value="0" oninput="this.nextElementSibling.textContent=this.value+' km/h'">
+                        <span>0 km/h</span>
+                    </div>
+                    <div class="slider-row">
+                        <label>Max</label>
+                        <input type="range" min="0" max="130" value="130" oninput="this.nextElementSibling.textContent=this.value+' km/h'">
+                        <span>130 km/h</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRE ZONE -->
+    <div class="accordion">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span><span class="icon">📍</span>Filtre par zone</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+            <div class="filter-group">
+                <div class="filter-label">Zone géographique</div>
+                <select class="filter-select">
+                    <option>Toutes les zones</option>
+                    <option>Zone Centre-Ville</option>
+                    <option>Zone Industrielle Nord</option>
+                    <option>Zone Aéroport</option>
+                    <option>Zone Périphérique Sud</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Position relative</div>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" checked> Dans la zone
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox"> Hors de la zone
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox"> En entrée/sortie
+                    </label>
+                </div>
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Rayon de proximité (km)</div>
+                <div class="slider-row">
+                    <input type="range" min="1" max="50" value="10" style="flex:1" oninput="this.nextElementSibling.textContent=this.value+' km'">
+                    <span style="font-size:12px;font-weight:600;color:#0052CC;width:50px;text-align:right">10 km</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRE ALERTE -->
+    <div class="accordion">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span><span class="icon">🚨</span>Filtre par alerte</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+            <div class="filter-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Alertes actives seulement</span>
+                    <label class="toggle">
+                        <input type="checkbox">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span class="toggle-label">Dépassement de vitesse</span>
+                    <label class="toggle">
+                        <input type="checkbox" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span class="toggle-label">Sortie de zone</span>
+                    <label class="toggle">
+                        <input type="checkbox" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Sévérité</div>
+                <div class="severity-group">
+                    <span class="severity-badge warning">⚠️ Avertissement</span>
+                    <span class="severity-badge alert">🔴 Alerte</span>
+                    <span class="severity-badge critical inactive">🆘 Critique</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRE TEMPOREL -->
+    <div class="accordion">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span><span class="icon">📅</span>Filtre temporel</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+            <div class="filter-group">
+                <div class="filter-label">Période d'activité</div>
+                <select class="filter-select">
+                    <option>Temps réel</option>
+                    <option>Dernière heure</option>
+                    <option>Aujourd'hui</option>
+                    <option>7 derniers jours</option>
+                    <option>Personnalisé</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Plage personnalisée</div>
+                <div class="date-row">
+                    <input type="date" value="2026-08-05">
+                    <input type="date" value="2026-08-05">
+                </div>
+            </div>
+            <div class="filter-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Afficher historique trajet</span>
+                    <label class="toggle">
+                        <input type="checkbox">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOUTONS -->
+    <div class="btn-group">
+        <button class="btn-apply" onclick="applyFilters()">✅ Appliquer</button>
+        <button class="btn-reset" onclick="resetFilters()">↺ Réinitialiser</button>
+    </div>
+</div>
+
+<!-- CARTE -->
+<div class="map-container">
+    <div class="map-grid"></div>
+
+    <!-- BARRE SUPERIEURE -->
+    <div class="map-topbar">
+        <input type="text" class="map-search" placeholder="🔍 Rechercher une adresse ou un véhicule...">
+        <button class="map-btn active">🗺️ Carte</button>
+        <button class="map-btn">📡 Satellite</button>
+        <button class="map-btn">🔄 Refresh</button>
+    </div>
+
+    <!-- MARQUEURS VEHICULES -->
+    <div class="vehicle-marker vm-green" title="VH-001 - En mouvement - 62 km/h">🚗</div>
+    <div class="vehicle-marker vm-orange" title="VH-002 - Ralenti - 8 km/h">🚛</div>
+    <div class="vehicle-marker vm-red" title="VH-003 - ALERTE VITESSE - 88 km/h">🚨</div>
+    <div class="vehicle-marker vm-blue" title="VH-004 - En mouvement - 45 km/h">🚐</div>
+    <div class="vehicle-marker vm-gray" title="VH-005 - Arrêté - 0 km/h">🚗</div>
+    <div class="vehicle-marker vm-green2" title="VH-006 - En mouvement - 55 km/h">🚚</div>
+
+    <!-- TOOLTIP VEHICULE -->
+    <div class="vehicle-tooltip">
+        <div class="tooltip-title">🚗 VH-001 — Camion Livraison</div>
+        <div class="tooltip-row"><span>Conducteur</span><span>Jean Dupont</span></div>
+        <div class="tooltip-row"><span>Vitesse</span><span>62 km/h</span></div>
+        <div class="tooltip-row"><span>Zone</span><span>Centre-Ville</span></div>
+        <div class="tooltip-row"><span>Statut</span><span style="color:#36B37E">● En mouvement</span></div>
+        <div class="tooltip-row"><span>Dernière MAJ</span><span>il y a 3s</span></div>
+    </div>
+
+    <!-- COMPTEUR BAS -->
+    <div class="map-bottombar">
+        <span class="count-highlight" id="displayCount">6</span>
+        <span>véhicules affichés</span>
+        <span class="count-total">/ 6 total</span>
+        <span style="color:#DFE1E6">|</span>
+        <span style="color:#36B37E; font-size:12px;">● Temps réel</span>
+        <span style="color:#97A0AF; font-size:11px;">Refresh: 5s</span>
+    </div>
+
+    <!-- LEGENDE -->
+    <div class="map-legend">
+        <div class="legend-title">Légende</div>
+        <div class="legend-item"><span class="status-dot dot-green"></span> En mouvement</div>
+        <div class="legend-item"><span class="status-dot dot-orange"></span> Ralenti</div>
+        <div class="legend-item"><span class="status-dot dot-gray"></span> Arrêté</div>
+        <div class="legend-item"><span class="status-dot dot-red"></span> En alerte</div>
+    </div>
+</div>
+
+<script>
+    // Accordéon
+    function toggleAccordion(header) {
+        header.classList.toggle('open');
+        const body = header.nextElementSibling;
+        body.classList.toggle('open');
+    }
+
+    // Appliquer filtres
+    function applyFilters() {
+        const checkboxes = document.querySelectorAll('.checkbox-item input[type="checkbox"]:checked');
+        const count = Math.floor(Math.random() * 4) + 3;
+        document.getElementById('vehicleCount').textContent = count + ' véhicules';
+        document.getElementById('displayCount').textContent = count;
+        alert('✅ Filtres appliqués — ' + count + ' véhicules affichés');
+    }
+
+    // Réinitialiser filtres
+    function resetFilters() {
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('input[type="range"]').forEach(r => r.dispatchEvent(new Event('input')));
+        document.getElementById('vehicleCount').textContent = '6 véhicules';
+        document.getElementById('displayCount').textContent = '6';
+    }
+
+    // Refresh automatique simulé
+    setInterval(() => {
+        const dot = document.querySelector('.map-bottombar span[style*="36B37E"]');
+        if (dot) dot.style.opacity = dot.style.opacity === '0.3' ? '1' : '0.3';
+    }, 1000);
+</script>
+</body>
+</html>
