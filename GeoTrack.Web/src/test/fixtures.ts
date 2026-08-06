@@ -1,0 +1,65 @@
+import type { PositionGps, Vehicule } from '../types';
+import { versVehicules } from '../types';
+
+/** Horodatage fixe : evite tout test dependant de l'heure reelle. */
+export const MAINTENANT = new Date('2026-08-06T12:00:00.000Z');
+
+function ilYaSecondes(secondes: number): string {
+  return new Date(MAINTENANT.getTime() - secondes * 1000).toISOString();
+}
+
+/**
+ * Trois positions couvrant les trois statuts de la maquette GEO-24 :
+ * en route (vert), a l'arret (gris), panne (rouge).
+ */
+export const POSITIONS_API: PositionGps[] = [
+  {
+    id: 1,
+    vehiculeId: 'VH-001',
+    latitude: 45.4765,
+    longitude: -75.7013,
+    vitesse: 62.4,
+    direction: 90,
+    horodatage: ilYaSecondes(10),
+    etatVehicule: 'En route',
+    niveauCarburant: 72,
+    erreur: null,
+  },
+  {
+    id: 2,
+    vehiculeId: 'VH-002',
+    latitude: 45.4201,
+    longitude: -75.699,
+    vitesse: 0,
+    direction: 0,
+    horodatage: ilYaSecondes(45),
+    etatVehicule: "A l'arret",
+    niveauCarburant: 40,
+    erreur: null,
+  },
+  {
+    id: 3,
+    vehiculeId: 'VH-003',
+    latitude: 45.5017,
+    longitude: -75.6503,
+    vitesse: 0,
+    direction: 180,
+    horodatage: ilYaSecondes(120),
+    etatVehicule: 'Panne',
+    niveauCarburant: 5,
+    erreur: 'Capteur GPS hors service',
+  },
+];
+
+/** Les memes vehicules, apres la normalisation appliquee par `versVehicules`. */
+export const VEHICULES: Vehicule[] = versVehicules(POSITIONS_API);
+
+/** Reponse `fetch` minimale mais suffisante pour `obtenirPositions`. */
+export function reponseJson(donnees: unknown, statut = 200): Response {
+  return {
+    ok: statut >= 200 && statut < 300,
+    status: statut,
+    statusText: statut === 200 ? 'OK' : 'Erreur',
+    json: async () => donnees,
+  } as Response;
+}
