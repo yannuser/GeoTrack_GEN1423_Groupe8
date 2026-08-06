@@ -8,6 +8,17 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddControllers();
 
+// GEO-27 : autorise le frontend GeoTrack.Web (Vite) a appeler l'API en developpement.
+const string PolitiqueCorsDeveloppement = "GeoTrackWebDev";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(PolitiqueCorsDeveloppement, politique =>
+        politique
+            .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
+
 builder.Services.AddDbContext<GeoTrackContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("GeoTrackDb")));
 
@@ -20,6 +31,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors(PolitiqueCorsDeveloppement);
+}
 
 app.MapControllers();
 

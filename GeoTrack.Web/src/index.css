@@ -1,0 +1,469 @@
+/* ==========================================================================
+   GEO-27 — Carte des positions vehicules
+   Styles derives de la maquette Figma validee pour GEO-24.
+   ========================================================================== */
+
+:root {
+  --gt-bordure: #e6e8eb;
+  --gt-texte: #1a1d21;
+  --gt-texte-doux: #6b7280;
+  --gt-fond-panneau: #ffffff;
+  --gt-rouge: #e03131;
+  --gt-vert: #22a05b;
+  --gt-gris: #8a8f98;
+  --gt-bleu: #2f6fed;
+  --gt-largeur-panneau: 400px;
+  --gt-hauteur-entete: 68px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--gt-texte);
+  background: #fff;
+}
+
+.gt-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---------- En-tete ---------- */
+
+.gt-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: var(--gt-hauteur-entete);
+  padding: 0 20px;
+  border-bottom: 1px solid var(--gt-bordure);
+  flex: 0 0 auto;
+}
+
+.gt-entete__marque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gt-logo {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--gt-rouge);
+  color: #fff;
+}
+
+.gt-entete__titre {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.gt-entete__separateur {
+  width: 1px;
+  height: 22px;
+  background: var(--gt-bordure);
+}
+
+.gt-entete__sous-titre {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.1px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-entete__compteurs {
+  display: flex;
+  gap: 26px;
+  font-size: 14px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-compteur strong {
+  color: var(--gt-texte);
+  font-weight: 600;
+}
+
+.gt-entete__utilisateur {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gt-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gt-entete__identite {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.gt-entete__identite small {
+  color: var(--gt-texte-doux);
+  font-size: 12px;
+}
+
+.gt-deconnexion {
+  border-color: var(--gt-bordure);
+  color: var(--gt-texte);
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+/* ---------- Points de statut ---------- */
+
+.gt-point,
+.gt-point-mini {
+  display: inline-block;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.gt-point {
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.gt-point-mini {
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+}
+
+.gt-point--pulse {
+  animation: gt-pulse 1s ease-in-out infinite;
+}
+
+@keyframes gt-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- Corps ---------- */
+
+.gt-corps {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---------- Panneau lateral ---------- */
+
+.gt-panneau {
+  display: flex;
+  flex-direction: column;
+  width: var(--gt-largeur-panneau);
+  flex: 0 0 var(--gt-largeur-panneau);
+  border-right: 1px solid var(--gt-bordure);
+  background: var(--gt-fond-panneau);
+  min-height: 0;
+}
+
+.gt-panneau__entete {
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--gt-bordure);
+}
+
+.gt-panneau__titre {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: var(--gt-texte-doux);
+  margin: 0 0 8px;
+}
+
+.gt-panneau__compteur {
+  margin: 0;
+  font-size: 15px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-panneau__compteur strong {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--gt-texte);
+  margin-right: 6px;
+}
+
+.gt-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.gt-liste__vide {
+  padding: 28px 20px;
+  color: var(--gt-texte-doux);
+  font-size: 14px;
+}
+
+.gt-carte-vehicule {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--gt-bordure);
+  border-left: 3px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.gt-carte-vehicule:hover {
+  background: #f7f8fa;
+}
+
+.gt-carte-vehicule--active {
+  background: #f2f6ff;
+  border-left-color: var(--gt-bleu);
+}
+
+.gt-carte-vehicule__ligne1,
+.gt-carte-vehicule__ligne2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gt-carte-vehicule__id {
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.gt-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 11px;
+}
+
+.gt-carte-vehicule__nom {
+  font-size: 14px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-carte-vehicule__vitesse {
+  font-size: 13px;
+  color: var(--gt-bleu);
+  white-space: nowrap;
+}
+
+.gt-carte-vehicule__vitesse strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.gt-carte-vehicule__vitesse--nulle {
+  color: var(--gt-texte-doux);
+}
+
+.gt-carte-vehicule__ligne3 {
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-legende {
+  padding: 16px 20px;
+  border-top: 1px solid var(--gt-bordure);
+  flex: 0 0 auto;
+}
+
+.gt-legende__ligne {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+}
+
+.gt-legende__ligne:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Zone principale ---------- */
+
+.gt-principal {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gt-barre {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--gt-bordure);
+  flex: 0 0 auto;
+}
+
+.gt-recherche {
+  max-width: 320px;
+}
+
+.gt-recherche .input-group-text {
+  background: #fff;
+  border-right: 0;
+  color: var(--gt-texte-doux);
+}
+
+.gt-recherche .form-control {
+  border-left: 0;
+  padding-left: 0;
+  box-shadow: none;
+}
+
+.gt-zones {
+  max-width: 230px;
+}
+
+.gt-pastilles {
+  display: flex;
+  gap: 8px;
+}
+
+.gt-pastille {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 15px;
+  border: 1px solid var(--gt-bordure);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--gt-texte-doux);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gt-pastille:hover {
+  border-color: #cfd4da;
+}
+
+.gt-pastille--active.gt-pastille--en_route {
+  background: #e8f7ee;
+  border-color: #b7e4c8;
+  color: #14663a;
+}
+
+.gt-pastille--active.gt-pastille--a_l_arret {
+  background: #f1f2f4;
+  border-color: #d8dade;
+  color: #4a4f57;
+}
+
+.gt-pastille--active.gt-pastille--panne {
+  background: #fdecec;
+  border-color: #f6c2c2;
+  color: #a52020;
+}
+
+.gt-pastille:not(.gt-pastille--active) {
+  opacity: 0.55;
+}
+
+.gt-fraicheur {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--gt-texte-doux);
+  white-space: nowrap;
+}
+
+.gt-alerte {
+  margin: 12px 20px 0;
+  flex: 0 0 auto;
+}
+
+/* ---------- Carte ---------- */
+
+.gt-carte {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.gt-popup dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 8px 0 0;
+  font-size: 12.5px;
+}
+
+.gt-popup dt {
+  color: var(--gt-texte-doux);
+  font-weight: 500;
+}
+
+.gt-popup dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.gt-popup__statut {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gt-popup__erreur {
+  margin: 8px 0 0;
+  color: var(--gt-rouge);
+  font-size: 12px;
+}
+
+/* ---------- Adaptatif ---------- */
+
+@media (max-width: 992px) {
+  .gt-corps {
+    flex-direction: column;
+  }
+
+  .gt-panneau {
+    width: 100%;
+    flex: 0 0 45%;
+    border-right: 0;
+    border-bottom: 1px solid var(--gt-bordure);
+  }
+
+  .gt-barre {
+    flex-wrap: wrap;
+  }
+
+  .gt-fraicheur {
+    margin-left: 0;
+  }
+}
