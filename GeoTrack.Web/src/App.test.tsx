@@ -1,7 +1,7 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { POSITIONS_API, reponseJson } from './test/fixtures';
+import { CLE_SESSION, installerSession, POSITIONS_API, reponseJson } from './test/fixtures';
 
 vi.mock('react-leaflet', () => import('./test/leafletMock'));
 
@@ -28,6 +28,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   fetchMock = vi.fn().mockResolvedValue(reponseJson(POSITIONS_API));
   vi.stubGlobal('fetch', fetchMock);
+  // GEO-18 : sans session, App n'affiche que l'ecran de connexion.
+  installerSession();
 });
 
 afterEach(() => {
@@ -44,6 +46,13 @@ describe('App - chargement des positions', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('/api/positionsgps');
 
     expect(screen.getAllByTestId('marqueur')).toHaveLength(POSITIONS_API.length);
+  });
+
+  it('joint le jeton de session dans l en-tete Authorization', async () => {
+    await monterApp();
+
+    const options = fetchMock.mock.calls[0][1];
+    expect(options.headers.Authorization).toBe('Bearer jeton.de.test');
   });
 
   it('colore les marqueurs selon le statut renvoye par l API', async () => {
@@ -164,5 +173,101 @@ describe('App - gestion des erreurs', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getAllByTestId('marqueur')).toHaveLength(3);
+  });
+});
+
+describe('App - porte d authentification (GEO-18)', () => {
+  const champIdentifiant = () => screen.queryByLabelText('Identifiant');
+
+  it('affiche l ecran de connexion et n appelle pas l API sans session', async () => {
+    localStorage.clear();
+
+    render(<App />);
+    await avancer(0);
+
+    expect(champIdentifiant()).toBeInTheDocument();
+    expect(screen.queryByTestId('carte')).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('affiche le suivi de flotte quand une session valide est presente', async () => {
+    await monterApp();
+
+    expect(champIdentifiant()).not.toBeInTheDocument();
+    expect(screen.getByTestId('carte')).toBeInTheDocument();
+    expect(screen.getByText('Jean Dubois')).toBeInTheDocument();
+  });
+
+  it('renvoie vers la connexion quand l API repond 401', async () => {
+    fetchMock.mockResolvedValue(reponseJson({ message: 'non autorise' }, 401));
+
+    await monterApp();
+
+    expect(champIdentifiant()).toBeInTheDocument();
+    expect(screen.queryByTestId('carte')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/session a expire/i);
+
+    // La session invalide est purgee, et plus rien n'est reinterroge.
+    expect(localStorage.getItem(CLE_SESSION)).toBeNull();
+    const appelsAvant = fetchMock.mock.calls.length;
+    await avancer(INTERVALLE_MS * 3);
+    expect(fetchMock).toHaveBeenCalledTimes(appelsAvant);
+  });
+
+  it('la deconnexion purge la session et coupe le rafraichissement', async () => {
+    await monterApp();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /deconnexion/i }));
+
+    expect(champIdentifiant()).toBeInTheDocument();
+    expect(localStorage.getItem(CLE_SESSION)).toBeNull();
+
+    await avancer(INTERVALLE_MS * 3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('bascule sur le suivi de flotte apres une connexion reussie', async () => {
+    localStorage.clear();
+
+    const nouvelleSession = {
+      jeton: 'jeton.frais',
+      expiration: new Date(Date.now() + 3_600_000).toISOString(),
+      identifiant: 'marie.tremblay',
+      nomComplet: 'Marie Tremblay',
+    };
+
+    // Chaque endpoint repond selon son URL : login puis positions.
+    fetchMock.mockImplementation((url: unknown) =>
+      Promise.resolve(
+        String(url).includes('/api/auth/login')
+          ? reponseJson(nouvelleSession)
+          : reponseJson(POSITIONS_API),
+      ),
+    );
+
+    render(<App />);
+    await avancer(0);
+
+    fireEvent.change(screen.getByLabelText('Identifiant'), {
+      target: { value: 'marie.tremblay' },
+    });
+    fireEvent.change(screen.getByLabelText('Mot de passe'), {
+      target: { value: 'MotDePasse1' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /se connecter/i }));
+    await avancer(0);
+
+    // Connecte : la carte est montee et l'en-tete affiche le nom du compte.
+    expect(screen.getByTestId('carte')).toBeInTheDocument();
+    expect(screen.getByText('Marie Tremblay')).toBeInTheDocument();
+
+    // Le chargement des positions utilise le jeton tout juste obtenu.
+    const appelPositions = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes('/api/positionsgps'),
+    );
+    expect(appelPositions).toBeDefined();
+    expect(appelPositions![1].headers.Authorization).toBe('Bearer jeton.frais');
   });
 });

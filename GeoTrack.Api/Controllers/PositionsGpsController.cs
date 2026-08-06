@@ -1,11 +1,16 @@
 using GeoTrack.Api.Data;
 using GeoTrack.Api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GeoTrack.Api.Controllers
 {
+    // GEO-18 : les positions GPS ne sont plus accessibles anonymement.
+    // [Authorize] au niveau du controleur couvre GET et POST : toute requete
+    // sans jeton JWT valide recoit un 401 avant d'atteindre les actions.
     [ApiController]
+    [Authorize]
     [Route("api/positionsgps")]
     public class PositionsGpsController : ControllerBase
     {

@@ -391,6 +391,61 @@ body {
   color: #a52020;
 }
 
+/* ---------- Connexion (GEO-18) ---------- */
+
+.gt-connexion {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px;
+  background: #f6f7f9;
+}
+
+.gt-connexion__carte {
+  width: 100%;
+  max-width: 380px;
+  padding: 32px;
+  border: 1px solid var(--gt-bordure);
+  border-radius: 12px;
+  background: var(--gt-fond-panneau);
+  box-shadow: 0 8px 28px rgb(26 29 33 / 8%);
+}
+
+.gt-connexion__marque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.gt-connexion__titre {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.gt-connexion__soustitre {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-connexion__champ {
+  margin-bottom: 16px;
+}
+
+.gt-connexion__champ label {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.gt-connexion__bouton {
+  width: 100%;
+  background: var(--gt-bleu);
+  border-color: var(--gt-bleu);
+}
+
 .gt-pastille:not(.gt-pastille--active) {
   opacity: 0.55;
 }
