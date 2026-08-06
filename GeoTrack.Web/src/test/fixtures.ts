@@ -1,3 +1,4 @@
+import type { SessionUtilisateur } from '../auth';
 import type { PositionGps, Vehicule } from '../types';
 import { versVehicules } from '../types';
 
@@ -62,4 +63,26 @@ export function reponseJson(donnees: unknown, statut = 200): Response {
     statusText: statut === 200 ? 'OK' : 'Erreur',
     json: async () => donnees,
   } as Response;
+}
+
+// ---------------------------------------------------------------------------
+// GEO-18 : session authentifiee
+// ---------------------------------------------------------------------------
+
+export const CLE_SESSION = 'geotrack.session';
+
+/** Session valide, expirant largement apres la fin du test. */
+export function sessionValide(): SessionUtilisateur {
+  return {
+    jeton: 'jeton.de.test',
+    expiration: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    identifiant: 'jean.dubois',
+    nomComplet: 'Jean Dubois',
+  };
+}
+
+/** Place une session valide dans localStorage : App demarre alors connecte. */
+export function installerSession(session: SessionUtilisateur = sessionValide()): SessionUtilisateur {
+  localStorage.setItem(CLE_SESSION, JSON.stringify(session));
+  return session;
 }

@@ -1,16 +1,61 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-bootstrap';
-import { obtenirPositions } from './api';
+import { estNonAutorise, obtenirPositions } from './api';
+import { effacerSession, lireSession, type SessionUtilisateur } from './auth';
 import { BarreFiltres, TOUTES_ZONES } from './components/BarreFiltres';
 import { CarteVehicules } from './components/CarteVehicules';
 import { EnTete } from './components/EnTete';
+import { FormulaireConnexion } from './components/FormulaireConnexion';
 import { PanneauVehicules } from './components/PanneauVehicules';
 import { ORDRE_STATUTS, versVehicules, type StatutVehicule, type Vehicule } from './types';
 
 /** Cadence de rafraichissement, conforme au diagramme de sequence GEO-25. */
 const INTERVALLE_RAFRAICHISSEMENT_MS = 5_000;
 
+/**
+ * GEO-18 : porte d'entree de l'application.
+ * Sans session valide, seul l'ecran de connexion est monte — le suivi de flotte
+ * n'est donc jamais rendu, et aucun appel a l'API protegee n'est tente.
+ */
 export default function App() {
+  const [session, setSession] = useState<SessionUtilisateur | null>(() => lireSession());
+  const [messageSession, setMessageSession] = useState<string | null>(null);
+
+  const deconnecter = useCallback((message: string | null) => {
+    effacerSession();
+    setMessageSession(message);
+    setSession(null);
+  }, []);
+
+  if (!session) {
+    return (
+      <FormulaireConnexion
+        onConnecte={(nouvelle) => {
+          setMessageSession(null);
+          setSession(nouvelle);
+        }}
+        messageInitial={messageSession}
+      />
+    );
+  }
+
+  return (
+    <EcranFlotte
+      // Remonter le composant a chaque session evite de conserver l'etat
+      // (vehicules, filtres) d'un utilisateur precedent.
+      key={session.jeton}
+      session={session}
+      onDeconnexion={deconnecter}
+    />
+  );
+}
+
+interface ProprietesEcranFlotte {
+  session: SessionUtilisateur;
+  onDeconnexion: (message: string | null) => void;
+}
+
+function EcranFlotte({ session, onDeconnexion }: ProprietesEcranFlotte) {
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enChargement, setEnChargement] = useState(false);
@@ -35,17 +80,25 @@ export default function App() {
 
     setEnChargement(true);
     try {
-      const positions = await obtenirPositions(controleur.signal);
+      const positions = await obtenirPositions(session.jeton, controleur.signal);
       setVehicules(versVehicules(positions));
       setDerniereMaj(new Date());
       setErreur(null);
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'AbortError') return;
+
+      // Jeton refuse ou expire : on renvoie l'utilisateur vers la connexion
+      // plutot que d'afficher une carte vide et de reinterroger toutes les 5 s.
+      if (estNonAutorise(cause)) {
+        onDeconnexion(cause instanceof Error ? cause.message : null);
+        return;
+      }
+
       setErreur(cause instanceof Error ? cause.message : 'Erreur inconnue.');
     } finally {
       if (requeteEnCours.current === controleur) setEnChargement(false);
     }
-  }, []);
+  }, [session.jeton, onDeconnexion]);
 
   // Chargement initial + rafraichissement automatique toutes les 5 secondes.
   useEffect(() => {
@@ -111,7 +164,11 @@ export default function App() {
 
   return (
     <div className="gt-app">
-      <EnTete compteurs={compteurs} />
+      <EnTete
+        compteurs={compteurs}
+        session={session}
+        onDeconnexion={() => onDeconnexion(null)}
+      />
 
       <div className="gt-corps">
         <PanneauVehicules

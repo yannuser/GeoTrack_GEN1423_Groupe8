@@ -1,16 +1,19 @@
 import { Button } from 'react-bootstrap';
+import { initiales, type SessionUtilisateur } from '../auth';
 import { ORDRE_STATUTS, STATUTS, type StatutVehicule } from '../types';
 
 interface Props {
   compteurs: Record<StatutVehicule, number>;
+  session: SessionUtilisateur;
+  onDeconnexion: () => void;
 }
 
 /**
  * Bandeau superieur : logo, compteurs par statut, utilisateur connecte.
- * L'authentification n'etant pas encore livree (GEO-18), le bloc utilisateur
- * est statique — voir la note dans le README.
+ * Depuis GEO-18, le bloc utilisateur reflete la session reelle et le bouton
+ * "Deconnexion" purge le jeton.
  */
-export function EnTete({ compteurs }: Props) {
+export function EnTete({ compteurs, session, onDeconnexion }: Props) {
   return (
     <header className="gt-entete">
       <div className="gt-entete__marque">
@@ -34,12 +37,17 @@ export function EnTete({ compteurs }: Props) {
       </div>
 
       <div className="gt-entete__utilisateur">
-        <span className="gt-avatar">JD</span>
+        <span className="gt-avatar">{initiales(session.nomComplet, session.identifiant)}</span>
         <span className="gt-entete__identite">
-          <strong>Jean Dubois</strong>
+          <strong>{session.nomComplet || session.identifiant}</strong>
           <small>Gestionnaire de flotte</small>
         </span>
-        <Button variant="outline-secondary" size="sm" className="gt-deconnexion">
+        <Button
+          variant="outline-secondary"
+          size="sm"
+          className="gt-deconnexion"
+          onClick={onDeconnexion}
+        >
           Deconnexion
         </Button>
       </div>
