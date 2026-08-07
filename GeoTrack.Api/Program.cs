@@ -1,5 +1,6 @@
 using System.Text;
 using GeoTrack.Api.Data;
+using GeoTrack.Api.Data.Repositories;
 using GeoTrack.Api.Models;
 using GeoTrack.Api.Services;
 using GeoTrack.Api.Services.HistoriqueTrajets;
@@ -77,9 +78,13 @@ builder.Services.AddScoped<HistoriqueTrajetService>();
 // Les collections internes sont concurrentes, l'usage partage est sur.
 builder.Services.AddSingleton<ResilienceService>();
 
-// GEO-15 : VehiculeService n'est PAS enregistre. Il depend de
-// IVehiculeRepository / IConducteurRepository / IGroupeRepository, dont aucune
-// implementation n'existe dans le depot. Voir le rapport de branchement.
+// GEO-15 : CRUD vehicule. Les 3 depots sont desormais implementes sur
+// GeoTrackContext (Data/Repositories). Scoped : ils encapsulent le DbContext,
+// lui-meme Scoped, et doivent partager sa duree de vie.
+builder.Services.AddScoped<IVehiculeRepository, VehiculeRepository>();
+builder.Services.AddScoped<IConducteurRepository, ConducteurRepository>();
+builder.Services.AddScoped<IGroupeRepository, GroupeRepository>();
+builder.Services.AddScoped<VehiculeService>();
 
 var optionsJwt = builder.Configuration.GetSection(OptionsJwt.Section).Get<OptionsJwt>() ?? new OptionsJwt();
 
