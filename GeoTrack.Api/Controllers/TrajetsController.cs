@@ -8,15 +8,22 @@
 using System;
 using System.Collections.Generic;
 using GeoTrack.Api.Services.HistoriqueTrajets;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GeoTrack.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class TrajetsController : ControllerBase
     {
-        private readonly HistoriqueTrajetService _service = new();
+        private readonly HistoriqueTrajetService _service;
+
+        public TrajetsController(HistoriqueTrajetService service)
+        {
+            _service = service;
+        }
 
         /// <summary>
         /// GET /api/trajets?vehiculeId=1&page=1&parPage=5

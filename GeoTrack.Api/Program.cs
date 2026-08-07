@@ -2,6 +2,8 @@ using System.Text;
 using GeoTrack.Api.Data;
 using GeoTrack.Api.Models;
 using GeoTrack.Api.Services;
+using GeoTrack.Api.Services.HistoriqueTrajets;
+using GeoTrack.Api.Services.Resilience;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +60,26 @@ builder.Services
 // ---------------------------------------------------------------------------
 builder.Services.Configure<OptionsJwt>(builder.Configuration.GetSection(OptionsJwt.Section));
 builder.Services.AddScoped<IJetonJwtService, JetonJwtService>();
+
+// ---------------------------------------------------------------------------
+// Branchement des services metier
+// ---------------------------------------------------------------------------
+
+// GEO-12 : historique des trajets. Injecte dans TrajetsController.
+// Scoped : le service est sans etat propre (ses donnees sont statiques),
+// une instance par requete suffit.
+builder.Services.AddScoped<HistoriqueTrajetService>();
+
+// GEO-16 : resilience / haute disponibilite. Injecte dans HealthController.
+// Singleton OBLIGATOIRE : l'etat des circuit breakers, les metriques et le
+// journal d'evenements sont portes par l'instance. En Scoped, chaque requete
+// repartirait d'un circuit vide et le disjoncteur ne se declencherait jamais.
+// Les collections internes sont concurrentes, l'usage partage est sur.
+builder.Services.AddSingleton<ResilienceService>();
+
+// GEO-15 : VehiculeService n'est PAS enregistre. Il depend de
+// IVehiculeRepository / IConducteurRepository / IGroupeRepository, dont aucune
+// implementation n'existe dans le depot. Voir le rapport de branchement.
 
 var optionsJwt = builder.Configuration.GetSection(OptionsJwt.Section).Get<OptionsJwt>() ?? new OptionsJwt();
 
