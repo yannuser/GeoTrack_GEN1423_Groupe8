@@ -657,57 +657,8 @@ namespace GeoTrack.Api.Services.Resilience
 
     // ========================================================================
     // CONTRÔLEUR API HEALTH & RÉSILIENCE
+    // -> deplace vers Controllers/HealthController.cs
     // ========================================================================
-
-    // [ApiController]
-    // [Route("api/health")]
-    public class HealthController
-    {
-        private readonly ResilienceService _resilience;
-
-        public HealthController(ResilienceService resilience)
-        {
-            _resilience = resilience;
-        }
-
-        // GET /api/health
-        // Critère #1 : vérifier qu'une panne partielle n'interrompt pas tout
-        public async Task<RapportSanteGlobal> ObtenirSanteGlobale()
-        {
-            return await _resilience.ObtenirRapportSante();
-        }
-
-        // GET /api/health/composants
-        public List<EtatCircuit> ObtenirCircuitBreakers()
-        {
-            return _resilience.ObtenirEtatsCircuits();
-        }
-
-        // GET /api/health/metriques
-        public List<MetriquesResilience> ObtenirMetriques()
-        {
-            return _resilience.ObtenirMetriques();
-        }
-
-        // GET /api/health/failover
-        // Critère #2 : mécanismes de secours documentés
-        public List<ConfigFailover> ObtenirFailovers()
-        {
-            return _resilience.ObtenirConfigsFailover();
-        }
-
-        // GET /api/health/evenements?limite=50
-        public List<EvenementResilience> ObtenirEvenements(int limite = 50)
-        {
-            return _resilience.ObtenirEvenements(limite);
-        }
-
-        // POST /api/health/reset/{composant}
-        public void ResetCircuit(ComposantSysteme composant)
-        {
-            _resilience.ResetCircuit(composant);
-        }
-    }
 
     // ========================================================================
     // EXEMPLES D'UTILISATION AVEC LES AUTRES SERVICES GEOTRACK

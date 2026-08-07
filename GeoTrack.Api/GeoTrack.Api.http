@@ -1,6 +1,9 @@
 @GeoTrack.Api_HostAddress = http://localhost:5288
 
-GET {{GeoTrack.Api_HostAddress}}/weatherforecast/
+# L'ancienne requete /weatherforecast (residu du template ASP.NET Core)
+# a ete retiree en meme temps que l'endpoint correspondant.
+
+GET {{GeoTrack.Api_HostAddress}}/api/positionsgps
 Accept: application/json
 
 ###
