@@ -24,12 +24,27 @@ namespace GeoTrack.Api.Data
 
         public DbSet<Conducteur> Conducteurs { get; set; }
 
+        // GEO-9 : zones geographiques surveillees (geofencing).
+        public DbSet<ZoneGeographique> ZonesGeographiques { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             // Indispensable : configure le schema Identity avant nos propres entites.
             base.OnModelCreating(builder);
 
             ConfigurerVehicule(builder);
+            ConfigurerZoneGeographique(builder);
+        }
+
+        /// <summary>
+        /// GEO-9 : la recherche des zones se fait toujours par vehicule, a chaque
+        /// position GPS recue. L'index evite un balayage complet de la table sur
+        /// le chemin le plus chaud de l'application.
+        /// </summary>
+        private static void ConfigurerZoneGeographique(ModelBuilder builder)
+        {
+            builder.Entity<ZoneGeographique>()
+                .HasIndex(z => z.VehiculeId);
         }
 
         /// <summary>

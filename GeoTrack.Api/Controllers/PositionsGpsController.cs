@@ -1,5 +1,6 @@
 using GeoTrack.Api.Data;
 using GeoTrack.Api.Models;
+using GeoTrack.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,20 @@ namespace GeoTrack.Api.Controllers
     public class PositionsGpsController : ControllerBase
     {
         private readonly GeoTrackContext _context;
+        private readonly GeofencingService _geofencing;
+        private readonly INotificateurAlerteZone _notificateur;
+        private readonly ILogger<PositionsGpsController> _journal;
 
-        public PositionsGpsController(GeoTrackContext context)
+        public PositionsGpsController(
+            GeoTrackContext context,
+            GeofencingService geofencing,
+            INotificateurAlerteZone notificateur,
+            ILogger<PositionsGpsController> journal)
         {
             _context = context;
+            _geofencing = geofencing;
+            _notificateur = notificateur;
+            _journal = journal;
         }
 
         // POST api/positionsgps
@@ -50,8 +61,18 @@ namespace GeoTrack.Api.Controllers
                 return BadRequest("Le champ Horodatage est obligatoire.");
             }
 
+            // GEO-9 : la position anterieure doit etre lue AVANT d'enregistrer la
+            // nouvelle, sans quoi celle qui vient d'arriver serait prise pour son
+            // propre antecedent et aucune transition ne serait jamais detectee.
+            var positionPrecedente = await _context.PositionsGps
+                .Where(p => p.VehiculeId == position.VehiculeId)
+                .OrderByDescending(p => p.Horodatage)
+                .FirstOrDefaultAsync();
+
             _context.PositionsGps.Add(position);
             await _context.SaveChangesAsync();
+
+            await VerifierSortiesDeZoneAsync(position, positionPrecedente);
 
             return Ok(position);
         }
@@ -66,6 +87,60 @@ namespace GeoTrack.Api.Controllers
                 .ToListAsync();
 
             return Ok(positions);
+        }
+
+        /// <summary>
+        /// GEO-9 : confronte la nouvelle position aux zones du vehicule et
+        /// signale chaque sortie detectee.
+        ///
+        /// Le geofencing ne doit jamais faire echouer l'ingestion GPS : la
+        /// position est deja enregistree quand cette methode s'execute, et une
+        /// defaillance de la notification est journalisee sans remonter en erreur
+        /// HTTP. Perdre une alerte est preferable a perdre une position.
+        /// </summary>
+        private async Task VerifierSortiesDeZoneAsync(
+            PositionGps position, PositionGps? positionPrecedente)
+        {
+            try
+            {
+                var zones = await _context.ZonesGeographiques
+                    .Where(z => z.VehiculeId == position.VehiculeId)
+                    .ToListAsync();
+
+                if (zones.Count == 0)
+                {
+                    return;
+                }
+
+                var evaluations = _geofencing.Evaluer(zones, position, positionPrecedente);
+
+                foreach (var evaluation in evaluations.Where(e => e.SortieDetectee))
+                {
+                    await _notificateur.SignalerSortieDeZoneAsync(new AlerteSortieZone
+                    {
+                        VehiculeId = position.VehiculeId,
+                        ZoneId = evaluation.Zone.Id,
+                        NomZone = evaluation.Zone.Nom,
+                        Latitude = position.Latitude,
+                        Longitude = position.Longitude,
+                        DistanceMetres = evaluation.DistanceMetres,
+                        RayonMetres = evaluation.Zone.RayonMetres,
+                        Horodatage = position.Horodatage
+                    });
+                }
+            }
+            catch (Exception exception)
+            {
+                // La position est deja enregistree a ce stade. On journalise et
+                // on rend la main : un geofencing en panne ne doit pas se
+                // traduire par un 500 cote emetteur GPS, qui reessaierait et
+                // dupliquerait la position. Couvre notamment le cas ou la
+                // migration GEO9_ZonesGeographiques n'a pas encore ete appliquee.
+                _journal.LogError(exception,
+                    "Geofencing indisponible pour le vehicule {VehiculeId}. "
+                    + "La position a bien ete enregistree, la verification de zone est ignoree.",
+                    position.VehiculeId);
+            }
         }
     }
 }

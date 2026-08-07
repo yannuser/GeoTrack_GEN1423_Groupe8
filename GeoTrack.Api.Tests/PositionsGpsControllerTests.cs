@@ -1,6 +1,8 @@
 using GeoTrack.Api.Controllers;
 using GeoTrack.Api.Data;
 using GeoTrack.Api.Models;
+using GeoTrack.Api.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,26 @@ namespace GeoTrack.Api.Tests
             return new GeoTrackContext(options);
         }
 
+        /// <summary>
+        /// GEO-9 : le controleur recoit desormais le geofencing. Ce stub capture
+        /// les alertes emises au lieu de les journaliser, ce qui permet aussi de
+        /// verifier qu'aucune alerte n'est generee quand il n'y a pas de zone.
+        /// </summary>
+        private sealed class StubNotificateurZone : INotificateurAlerteZone
+        {
+            public List<AlerteSortieZone> Alertes { get; } = new();
+
+            public Task SignalerSortieDeZoneAsync(AlerteSortieZone alerte)
+            {
+                Alertes.Add(alerte);
+                return Task.CompletedTask;
+            }
+        }
+
+        private static PositionsGpsController CreerControleur(GeoTrackContext context)
+            => new(context, new GeofencingService(), new StubNotificateurZone(),
+                NullLogger<PositionsGpsController>.Instance);
+
         private static PositionGps CreerPositionValide() => new()
         {
             VehiculeId = "VEH-001",
@@ -34,7 +56,7 @@ namespace GeoTrack.Api.Tests
         public async Task Post_RetourneBadRequest_QuandVehiculeIdEstVide()
         {
             using var context = CreerContexteEnMemoire();
-            var controller = new PositionsGpsController(context);
+            var controller = CreerControleur(context);
 
             var position = CreerPositionValide();
             position.VehiculeId = string.Empty;
@@ -50,7 +72,7 @@ namespace GeoTrack.Api.Tests
         public async Task Post_RetourneOk_QuandLaPositionEstValide()
         {
             using var context = CreerContexteEnMemoire();
-            var controller = new PositionsGpsController(context);
+            var controller = CreerControleur(context);
 
             var position = CreerPositionValide();
 
@@ -70,7 +92,7 @@ namespace GeoTrack.Api.Tests
         public async Task Post_RetourneBadRequest_QuandHorodatageEstManquant()
         {
             using var context = CreerContexteEnMemoire();
-            var controller = new PositionsGpsController(context);
+            var controller = CreerControleur(context);
 
             var position = CreerPositionValide();
             position.Horodatage = default;
@@ -92,7 +114,7 @@ namespace GeoTrack.Api.Tests
         public async Task Get_RetourneLesPositions_TrieesParHorodatageDecroissant()
         {
             using var context = CreerContexteEnMemoire();
-            var controller = new PositionsGpsController(context);
+            var controller = CreerControleur(context);
 
             var maintenant = new DateTime(2026, 8, 4, 12, 30, 0, DateTimeKind.Utc);
 
