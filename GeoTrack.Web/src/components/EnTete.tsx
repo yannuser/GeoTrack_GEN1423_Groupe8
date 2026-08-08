@@ -2,18 +2,32 @@ import { Button } from 'react-bootstrap';
 import { initiales, type SessionUtilisateur } from '../auth';
 import { ORDRE_STATUTS, STATUTS, type StatutVehicule } from '../types';
 
+/** GEO-59 : les deux vues de l'application. */
+export type Vue = 'carte' | 'alertes';
+
+const ONGLETS: { vue: Vue; libelle: string }[] = [
+  { vue: 'carte', libelle: 'Carte' },
+  { vue: 'alertes', libelle: 'Alertes' },
+];
+
 interface Props {
   compteurs: Record<StatutVehicule, number>;
   session: SessionUtilisateur;
   onDeconnexion: () => void;
+  vue: Vue;
+  onVue: (vue: Vue) => void;
 }
 
 /**
- * Bandeau superieur : logo, compteurs par statut, utilisateur connecte.
+ * Bandeau superieur : logo, navigation, compteurs par statut, utilisateur.
  * Depuis GEO-18, le bloc utilisateur reflete la session reelle et le bouton
  * "Deconnexion" purge le jeton.
+ *
+ * GEO-59 ajoute la bascule carte/alertes. Le projet n'utilise pas React Router :
+ * la navigation reste un simple etat local remonte a App, sans dependance
+ * supplementaire ni URL a gerer.
  */
-export function EnTete({ compteurs, session, onDeconnexion }: Props) {
+export function EnTete({ compteurs, session, onDeconnexion, vue, onVue }: Props) {
   return (
     <header className="gt-entete">
       <div className="gt-entete__marque">
@@ -26,6 +40,20 @@ export function EnTete({ compteurs, session, onDeconnexion }: Props) {
         <span className="gt-entete__separateur" />
         <span className="gt-entete__sous-titre">GESTION DE FLOTTE</span>
       </div>
+
+      <nav className="gt-entete__navigation" aria-label="Vues">
+        {ONGLETS.map((onglet) => (
+          <button
+            key={onglet.vue}
+            type="button"
+            className={`gt-onglet${vue === onglet.vue ? ' gt-onglet--actif' : ''}`}
+            onClick={() => onVue(onglet.vue)}
+            aria-current={vue === onglet.vue ? 'page' : undefined}
+          >
+            {onglet.libelle}
+          </button>
+        ))}
+      </nav>
 
       <div className="gt-entete__compteurs">
         {ORDRE_STATUTS.map((statut) => (

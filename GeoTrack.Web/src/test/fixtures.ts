@@ -1,5 +1,5 @@
 import type { SessionUtilisateur } from '../auth';
-import type { PositionGps, Vehicule } from '../types';
+import type { Alerte, PositionGps, Vehicule } from '../types';
 import { versVehicules } from '../types';
 
 /** Horodatage fixe : evite tout test dependant de l'heure reelle. */
@@ -86,3 +86,41 @@ export function installerSession(session: SessionUtilisateur = sessionValide()):
   localStorage.setItem(CLE_SESSION, JSON.stringify(session));
   return session;
 }
+
+// ---------------------------------------------------------------------------
+// GEO-59 : alertes centralisees
+// ---------------------------------------------------------------------------
+
+/**
+ * Trois alertes couvrant les deux types et trois severites.
+ * Deja triees par date decroissante, comme les renvoie l'API (GEO-58).
+ *
+ * Rappel : typeAlerte et severite sont des ENTIERS, l'API ne serialisant pas
+ * les enums en chaines.
+ */
+export const ALERTES_API: Alerte[] = [
+  {
+    id: 3,
+    date: '2026-08-08T14:32:00.000Z',
+    vehiculeId: 'VH-001',
+    typeAlerte: 0, // VitesseExcessive
+    severite: 3, // Critique
+    details: 'Vitesse relevee 92,0 km/h pour un seuil de 75,0 km/h (etat Declenchee).',
+  },
+  {
+    id: 2,
+    date: '2026-08-08T11:05:00.000Z',
+    vehiculeId: 'VH-002',
+    typeAlerte: 1, // SortieZone
+    severite: 2, // Alerte
+    details: "Sortie de la zone 'Depot central' (#1) — 1 240 m du centre pour un rayon de 500 m.",
+  },
+  {
+    id: 1,
+    date: '2026-08-07T09:15:00.000Z',
+    vehiculeId: 'VH-003',
+    typeAlerte: 0, // VitesseExcessive
+    severite: 1, // Avertissement
+    details: 'Vitesse relevee 58,0 km/h pour un seuil de 55,0 km/h (etat Declenchee).',
+  },
+];

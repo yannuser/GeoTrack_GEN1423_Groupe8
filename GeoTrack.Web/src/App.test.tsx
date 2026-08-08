@@ -1,7 +1,13 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { CLE_SESSION, installerSession, POSITIONS_API, reponseJson } from './test/fixtures';
+import {
+  ALERTES_API,
+  CLE_SESSION,
+  installerSession,
+  POSITIONS_API,
+  reponseJson,
+} from './test/fixtures';
 
 vi.mock('react-leaflet', () => import('./test/leafletMock'));
 
@@ -269,5 +275,58 @@ describe('App - porte d authentification (GEO-18)', () => {
     );
     expect(appelPositions).toBeDefined();
     expect(appelPositions![1].headers.Authorization).toBe('Bearer jeton.frais');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GEO-59 : navigation carte / alertes
+// ---------------------------------------------------------------------------
+
+describe('App - navigation vers les alertes', () => {
+  /** Repond selon l'endpoint appele : positions ou alertes. */
+  function routerFetch() {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url).includes('/api/alertes')
+          ? reponseJson(ALERTES_API)
+          : reponseJson(POSITIONS_API),
+      ),
+    );
+  }
+
+  it('affiche la carte par defaut, sans appeler /api/alertes', async () => {
+    routerFetch();
+    await monterApp();
+
+    expect(screen.getByTestId('carte')).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('/api/alertes')),
+    ).toBe(false);
+  });
+
+  it('bascule vers l historique des alertes au clic sur l onglet', async () => {
+    routerFetch();
+    await monterApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Alertes' }));
+    await avancer(0);
+
+    // La carte cede la place au tableau des alertes.
+    expect(screen.queryByTestId('carte')).not.toBeInTheDocument();
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByText('Sortie de zone')).toBeInTheDocument();
+  });
+
+  it('revient a la carte au clic sur l onglet Carte', async () => {
+    routerFetch();
+    await monterApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Alertes' }));
+    await avancer(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Carte' }));
+    await avancer(0);
+
+    expect(screen.getByTestId('carte')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });

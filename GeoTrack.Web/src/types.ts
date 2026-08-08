@@ -16,6 +16,89 @@ export interface PositionGps {
   erreur: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// GEO-59 : alertes centralisees (GET /api/alertes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Contrat de GeoTrack.Api/Models/Alerte.cs.
+ *
+ * ATTENTION : `typeAlerte` et `severite` arrivent en ENTIERS, pas en chaines.
+ * L'API n'enregistre aucun JsonStringEnumConverter, donc System.Text.Json
+ * serialise les enums par leur valeur numerique. Les tables de correspondance
+ * ci-dessous sont donc indexees par nombre.
+ */
+export interface Alerte {
+  id: number;
+  date: string;
+  vehiculeId: string;
+  typeAlerte: number;
+  severite: number;
+  details: string;
+}
+
+/** GeoTrack.Api/Models/TypeAlerte.cs */
+export const TYPE_ALERTE_VITESSE = 0;
+export const TYPE_ALERTE_SORTIE_ZONE = 1;
+
+/** GeoTrack.Api/Services/GEO-51 : SeveriteAlerte */
+export const SEVERITE_AUCUNE = 0;
+export const SEVERITE_AVERTISSEMENT = 1;
+export const SEVERITE_ALERTE = 2;
+export const SEVERITE_CRITIQUE = 3;
+
+const LIBELLES_TYPE_ALERTE: Record<number, string> = {
+  [TYPE_ALERTE_VITESSE]: 'Vitesse excessive',
+  [TYPE_ALERTE_SORTIE_ZONE]: 'Sortie de zone',
+};
+
+export interface SeveriteInfo {
+  libelle: string;
+  couleur: string;
+  variantBadge: string;
+}
+
+/**
+ * Couleurs alignees sur celles des statuts vehicule (voir STATUTS) : meme rouge
+ * pour le niveau le plus grave, meme gris pour l'absence de signal. Les deux
+ * niveaux intermediaires reprennent la graduation orange puis jaune.
+ */
+const SEVERITES: Record<number, SeveriteInfo> = {
+  [SEVERITE_AUCUNE]: { libelle: 'Aucune', couleur: '#8a8f98', variantBadge: 'secondary' },
+  [SEVERITE_AVERTISSEMENT]: { libelle: 'Avertissement', couleur: '#f59f00', variantBadge: 'warning' },
+  [SEVERITE_ALERTE]: { libelle: 'Alerte', couleur: '#f76707', variantBadge: 'warning' },
+  [SEVERITE_CRITIQUE]: { libelle: 'Critique', couleur: '#e03131', variantBadge: 'danger' },
+};
+
+/** Repli explicite : une valeur inconnue s'affiche au lieu de casser le rendu. */
+export function libelleTypeAlerte(type: number): string {
+  return LIBELLES_TYPE_ALERTE[type] ?? `Type ${type}`;
+}
+
+export function infoSeverite(severite: number): SeveriteInfo {
+  return (
+    SEVERITES[severite] ?? {
+      libelle: `Severite ${severite}`,
+      couleur: '#8a8f98',
+      variantBadge: 'secondary',
+    }
+  );
+}
+
+/** Date lisible dans le fuseau du navigateur : "8 aout 2026, 14:32". */
+export function formaterDateAlerte(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+
+  return date.toLocaleString('fr-CA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** Les trois statuts affiches par la maquette GEO-24. */
 export type StatutVehicule = 'en_route' | 'a_l_arret' | 'panne';
 
