@@ -18,17 +18,20 @@ namespace GeoTrack.Api.Controllers
         private readonly GeoTrackContext _context;
         private readonly GeofencingService _geofencing;
         private readonly INotificateurAlerteZone _notificateur;
+        private readonly AlerteVitesseService _alerteVitesse;
         private readonly ILogger<PositionsGpsController> _journal;
 
         public PositionsGpsController(
             GeoTrackContext context,
             GeofencingService geofencing,
             INotificateurAlerteZone notificateur,
+            AlerteVitesseService alerteVitesse,
             ILogger<PositionsGpsController> journal)
         {
             _context = context;
             _geofencing = geofencing;
             _notificateur = notificateur;
+            _alerteVitesse = alerteVitesse;
             _journal = journal;
         }
 
@@ -73,6 +76,7 @@ namespace GeoTrack.Api.Controllers
             await _context.SaveChangesAsync();
 
             await VerifierSortiesDeZoneAsync(position, positionPrecedente);
+            await VerifierDepassementVitesseAsync(position);
 
             return Ok(position);
         }
@@ -139,6 +143,83 @@ namespace GeoTrack.Api.Controllers
                 _journal.LogError(exception,
                     "Geofencing indisponible pour le vehicule {VehiculeId}. "
                     + "La position a bien ete enregistree, la verification de zone est ignoree.",
+                    position.VehiculeId);
+            }
+        }
+
+        /// <summary>
+        /// GEO-58 : soumet la vitesse de la position a AlerteVitesseService
+        /// (GEO-51) et consigne l'alerte en base si elle est effectivement
+        /// declenchee.
+        ///
+        /// La condition de persistance est <c>AlerteEnvoyee</c>, et non l'etat
+        /// Declenchee/Escaladee seul : un vehicule peut rester en etat Declenchee
+        /// pendant plusieurs mesures alors que l'anti-spam de GEO-51 bloque les
+        /// alertes suivantes. Se fier a l'etat inonderait la table d'un doublon
+        /// par position recue, ce qui reviendrait a contourner l'anti-spam. Quand
+        /// AlerteEnvoyee vaut vrai, l'etat est de toute facon Declenchee ou
+        /// Escaladee.
+        ///
+        /// Meme degradation gracieuse que le geofencing : la position est deja
+        /// enregistree, une panne ici ne doit pas produire de 500.
+        /// </summary>
+        private async Task VerifierDepassementVitesseAsync(PositionGps position)
+        {
+            Alerte? entree = null;
+
+            try
+            {
+                var resultat = await _alerteVitesse.EvaluerVitesse(new DonneeVitesse
+                {
+                    AppareilId = position.VehiculeId,
+                    Vitesse = position.Vitesse,
+                    Latitude = position.Latitude,
+                    Longitude = position.Longitude,
+                    Horodatage = position.Horodatage
+                });
+
+                if (!resultat.AlerteEnvoyee)
+                {
+                    return;
+                }
+
+                entree = new Alerte
+                {
+                    Date = position.Horodatage,
+                    VehiculeId = position.VehiculeId,
+                    TypeAlerte = TypeAlerte.VitesseExcessive,
+                    Severite = resultat.Severite,
+                    Details =
+                        $"Vitesse relevee {resultat.VitesseMesuree:F1} km/h pour un seuil de "
+                        + $"{resultat.SeuilDepasse:F1} km/h (etat {resultat.Etat}). {resultat.Raison}"
+                };
+
+                _context.Alertes.Add(entree);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception exception)
+            {
+                // Detacher l'entite si elle a ete ajoutee : sans cela elle
+                // resterait suivie par le contexte et un SaveChangesAsync
+                // ulterieur la retenterait, propageant l'echec. Le detachement
+                // est lui-meme protege : lever depuis un bloc catch annulerait
+                // la degradation gracieuse et rendrait un 500 a l'emetteur GPS.
+                if (entree is not null)
+                {
+                    try
+                    {
+                        _context.Entry(entree).State = EntityState.Detached;
+                    }
+                    catch (Exception echecDetachement)
+                    {
+                        _journal.LogDebug(echecDetachement,
+                            "Detachement de l'alerte de vitesse non persistee impossible.");
+                    }
+                }
+
+                _journal.LogError(exception,
+                    "Surveillance de vitesse indisponible pour le vehicule {VehiculeId}. "
+                    + "La position a bien ete enregistree, l'evaluation est ignoree.",
                     position.VehiculeId);
             }
         }
