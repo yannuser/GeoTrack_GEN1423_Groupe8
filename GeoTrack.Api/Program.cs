@@ -86,6 +86,18 @@ builder.Services.AddScoped<IConducteurRepository, ConducteurRepository>();
 builder.Services.AddScoped<IGroupeRepository, GroupeRepository>();
 builder.Services.AddScoped<VehiculeService>();
 
+// GEO-9 : geofencing. Injecte dans PositionsGpsController.
+// Le service est sans etat (l'etat precedent lui est fourni par l'appelant),
+// il pourrait donc etre Singleton ; il reste Scoped pour rester homogene avec
+// le reste et supporter sans risque l'ajout futur d'une dependance a duree de
+// vie plus courte.
+builder.Services.AddScoped<GeofencingService>();
+
+// Suite donnee a une sortie de zone. Journalisation uniquement pour l'instant :
+// le chantier GEO-58 (stockage centralise des alertes) n'aura qu'a substituer
+// une autre implementation ICI, sans toucher aux appelants.
+builder.Services.AddScoped<INotificateurAlerteZone, NotificateurAlerteZoneJournal>();
+
 var optionsJwt = builder.Configuration.GetSection(OptionsJwt.Section).Get<OptionsJwt>() ?? new OptionsJwt();
 
 if (string.IsNullOrWhiteSpace(optionsJwt.Cle) || optionsJwt.Cle.Length < 32)
