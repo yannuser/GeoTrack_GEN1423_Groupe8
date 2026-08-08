@@ -522,3 +522,166 @@ body {
     margin-left: 0;
   }
 }
+
+/* ---------- GEO-59 : navigation et historique des alertes ---------- */
+
+.gt-entete__navigation {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.gt-onglet {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gt-texte-doux);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.gt-onglet:hover {
+  background: #f2f4f7;
+  color: var(--gt-texte);
+}
+
+.gt-onglet--actif {
+  background: #eaf0fe;
+  border-color: #cddafc;
+  color: var(--gt-bleu);
+}
+
+.gt-corps--pleine-largeur {
+  flex-direction: column;
+  overflow: auto;
+}
+
+.gt-alertes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px;
+  width: 100%;
+}
+
+.gt-alertes__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.gt-alertes__titre {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--gt-texte-doux);
+}
+
+.gt-alertes__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gt-alertes__compteur {
+  font-size: 14px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-alertes__compteur strong {
+  color: var(--gt-texte);
+  font-weight: 600;
+}
+
+.gt-alertes__recharger {
+  border: 1px solid var(--gt-bordure);
+  background: var(--gt-fond-panneau);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--gt-texte);
+  cursor: pointer;
+}
+
+.gt-alertes__recharger:hover:not(:disabled) {
+  background: #f2f4f7;
+}
+
+.gt-alertes__recharger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.gt-alertes__etat {
+  margin: 0;
+  padding: 28px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--gt-texte-doux);
+}
+
+.gt-alertes__etat--vide {
+  border: 1px dashed var(--gt-bordure);
+  border-radius: 10px;
+  background: var(--gt-fond-panneau);
+}
+
+/* Le tableau defile horizontalement sur petit ecran plutot que de deborder. */
+.gt-alertes__tableau-cadre {
+  overflow-x: auto;
+  border: 1px solid var(--gt-bordure);
+  border-radius: 10px;
+  background: var(--gt-fond-panneau);
+}
+
+.gt-alertes__tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.gt-alertes__tableau th {
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gt-texte-doux);
+  border-bottom: 1px solid var(--gt-bordure);
+  white-space: nowrap;
+}
+
+.gt-alertes__tableau td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--gt-bordure);
+  vertical-align: middle;
+}
+
+.gt-alertes__tableau tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.gt-alertes__tableau tbody tr:hover {
+  background: #fafbfc;
+}
+
+.gt-alertes__date,
+.gt-alertes__vehicule {
+  white-space: nowrap;
+}
+
+.gt-alertes__vehicule {
+  font-weight: 600;
+}
+
+.gt-alertes__details {
+  color: var(--gt-texte-doux);
+  min-width: 260px;
+}

@@ -4,8 +4,9 @@ import { estNonAutorise, obtenirPositions } from './api';
 import { effacerSession, lireSession, type SessionUtilisateur } from './auth';
 import { BarreFiltres, TOUTES_ZONES } from './components/BarreFiltres';
 import { CarteVehicules } from './components/CarteVehicules';
-import { EnTete } from './components/EnTete';
+import { EnTete, type Vue } from './components/EnTete';
 import { FormulaireConnexion } from './components/FormulaireConnexion';
+import { ListeAlertes } from './components/ListeAlertes';
 import { PanneauVehicules } from './components/PanneauVehicules';
 import { ORDRE_STATUTS, versVehicules, type StatutVehicule, type Vehicule } from './types';
 
@@ -67,6 +68,9 @@ function EcranFlotte({ session, onDeconnexion }: ProprietesEcranFlotte) {
     () => new Set(ORDRE_STATUTS),
   );
   const [vehiculeSelectionne, setVehiculeSelectionne] = useState<string | null>(null);
+
+  // GEO-59 : bascule carte / alertes. Etat local, faute de routeur dans le projet.
+  const [vue, setVue] = useState<Vue>('carte');
 
   // Horloge dediee aux libelles "il y a X", pour qu'ils avancent entre deux appels.
   const [maintenant, setMaintenant] = useState(() => new Date());
@@ -168,44 +172,52 @@ function EcranFlotte({ session, onDeconnexion }: ProprietesEcranFlotte) {
         compteurs={compteurs}
         session={session}
         onDeconnexion={() => onDeconnexion(null)}
+        vue={vue}
+        onVue={setVue}
       />
 
-      <div className="gt-corps">
-        <PanneauVehicules
-          vehicules={vehiculesFiltres}
-          vehiculeSelectionne={vehiculeSelectionne}
-          onSelection={setVehiculeSelectionne}
-          maintenant={maintenant}
-        />
-
-        <main className="gt-principal">
-          <BarreFiltres
-            recherche={recherche}
-            onRecherche={setRecherche}
-            zones={zones}
-            zoneSelectionnee={zoneSelectionnee}
-            onZone={setZoneSelectionnee}
-            statutsActifs={statutsActifs}
-            onBasculerStatut={basculerStatut}
-            compteurs={compteurs}
-            secondesDepuisMaj={secondesDepuisMaj}
-            enChargement={enChargement}
-          />
-
-          {erreur && (
-            <Alert variant="danger" className="gt-alerte">
-              {erreur}
-            </Alert>
-          )}
-
-          <CarteVehicules
+      {vue === 'alertes' ? (
+        <div className="gt-corps gt-corps--pleine-largeur">
+          <ListeAlertes jeton={session.jeton} onNonAutorise={onDeconnexion} />
+        </div>
+      ) : (
+        <div className="gt-corps">
+          <PanneauVehicules
             vehicules={vehiculesFiltres}
             vehiculeSelectionne={vehiculeSelectionne}
             onSelection={setVehiculeSelectionne}
             maintenant={maintenant}
           />
-        </main>
-      </div>
+
+          <main className="gt-principal">
+            <BarreFiltres
+              recherche={recherche}
+              onRecherche={setRecherche}
+              zones={zones}
+              zoneSelectionnee={zoneSelectionnee}
+              onZone={setZoneSelectionnee}
+              statutsActifs={statutsActifs}
+              onBasculerStatut={basculerStatut}
+              compteurs={compteurs}
+              secondesDepuisMaj={secondesDepuisMaj}
+              enChargement={enChargement}
+            />
+
+            {erreur && (
+              <Alert variant="danger" className="gt-alerte">
+                {erreur}
+              </Alert>
+            )}
+
+            <CarteVehicules
+              vehicules={vehiculesFiltres}
+              vehiculeSelectionne={vehiculeSelectionne}
+              onSelection={setVehiculeSelectionne}
+              maintenant={maintenant}
+            />
+          </main>
+        </div>
+      )}
     </div>
   );
 }

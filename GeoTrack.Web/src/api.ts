@@ -1,5 +1,5 @@
 import type { SessionUtilisateur } from './auth';
-import type { PositionGps } from './types';
+import type { Alerte, PositionGps } from './types';
 
 /**
  * URL de base de GeoTrack.Api.
@@ -73,18 +73,22 @@ async function lireMessageErreur(reponse: Response): Promise<string> {
 }
 
 /**
- * GET /api/positionsgps — les 50 dernieres positions, triees par
- * horodatage decroissant (GEO-8, PositionsGpsController.Dernieres).
- * Protege par [Authorize] depuis GEO-18 : le jeton est obligatoire.
+ * Appel GET authentifie sur une ressource protegee par [Authorize] (GEO-18).
+ *
+ * Factorise le traitement d'erreur commun a tous les endpoints proteges :
+ * API injoignable, jeton refuse (401), autre code d'erreur. Le 401 conserve
+ * son statut pour qu'`estNonAutorise` puisse le reconnaitre et declencher le
+ * retour vers l'ecran de connexion.
  */
-export async function obtenirPositions(
+async function obtenirRessourceProtegee<T>(
+  chemin: string,
   jeton: string,
   signal?: AbortSignal,
-): Promise<PositionGps[]> {
+): Promise<T> {
   let reponse: Response;
 
   try {
-    reponse = await fetch(`${BASE_URL}/api/positionsgps`, {
+    reponse = await fetch(`${BASE_URL}${chemin}`, {
       signal,
       headers: {
         Accept: 'application/json',
@@ -103,5 +107,36 @@ export async function obtenirPositions(
     throw new ApiError(`L'API a repondu ${reponse.status} ${reponse.statusText}.`, reponse.status);
   }
 
-  return (await reponse.json()) as PositionGps[];
+  return (await reponse.json()) as T;
+}
+
+/**
+ * GET /api/positionsgps — les 50 dernieres positions, triees par
+ * horodatage decroissant (GEO-8, PositionsGpsController.Dernieres).
+ * Protege par [Authorize] depuis GEO-18 : le jeton est obligatoire.
+ */
+export function obtenirPositions(
+  jeton: string,
+  signal?: AbortSignal,
+): Promise<PositionGps[]> {
+  return obtenirRessourceProtegee<PositionGps[]>('/api/positionsgps', jeton, signal);
+}
+
+/**
+ * GET /api/alertes — historique centralise, deja trie par date decroissante
+ * par l'API (GEO-58, AlertesController.Lister). Le tri n'est donc pas refait
+ * cote client : on affiche dans l'ordre recu.
+ *
+ * `vehiculeId` active le filtre serveur optionnel.
+ */
+export function obtenirAlertes(
+  jeton: string,
+  vehiculeId?: string,
+  signal?: AbortSignal,
+): Promise<Alerte[]> {
+  const filtre = vehiculeId?.trim()
+    ? `?vehiculeId=${encodeURIComponent(vehiculeId.trim())}`
+    : '';
+
+  return obtenirRessourceProtegee<Alerte[]>(`/api/alertes${filtre}`, jeton, signal);
 }
