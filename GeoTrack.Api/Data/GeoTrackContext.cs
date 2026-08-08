@@ -27,6 +27,9 @@ namespace GeoTrack.Api.Data
         // GEO-9 : zones geographiques surveillees (geofencing).
         public DbSet<ZoneGeographique> ZonesGeographiques { get; set; }
 
+        // GEO-58 : alertes centralisees (vitesse + sortie de zone).
+        public DbSet<Alerte> Alertes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             // Indispensable : configure le schema Identity avant nos propres entites.
@@ -34,6 +37,22 @@ namespace GeoTrack.Api.Data
 
             ConfigurerVehicule(builder);
             ConfigurerZoneGeographique(builder);
+            ConfigurerAlerte(builder);
+        }
+
+        /// <summary>
+        /// GEO-58 : l'endpoint /api/alertes trie systematiquement par date
+        /// decroissante, avec un filtre optionnel par vehicule. L'index composite
+        /// couvre les deux formes de la requete : filtree par vehicule puis triee,
+        /// et non filtree mais triee.
+        /// </summary>
+        private static void ConfigurerAlerte(ModelBuilder builder)
+        {
+            builder.Entity<Alerte>()
+                .HasIndex(a => new { a.VehiculeId, a.Date });
+
+            builder.Entity<Alerte>()
+                .HasIndex(a => a.Date);
         }
 
         /// <summary>

@@ -20,25 +20,11 @@ namespace GeoTrack.Api.Tests
             return new GeoTrackContext(options);
         }
 
-        /// <summary>
-        /// GEO-9 : le controleur recoit desormais le geofencing. Ce stub capture
-        /// les alertes emises au lieu de les journaliser, ce qui permet aussi de
-        /// verifier qu'aucune alerte n'est generee quand il n'y a pas de zone.
-        /// </summary>
-        private sealed class StubNotificateurZone : INotificateurAlerteZone
-        {
-            public List<AlerteSortieZone> Alertes { get; } = new();
-
-            public Task SignalerSortieDeZoneAsync(AlerteSortieZone alerte)
-            {
-                Alertes.Add(alerte);
-                return Task.CompletedTask;
-            }
-        }
-
+        // Le constructeur de PositionsGpsController s'enrichit a chaque chantier
+        // (GEO-9 puis GEO-58). La construction passe donc par la fabrique
+        // partagee de GEO-58-Alertes-Tests.cs, seul endroit a corriger ensuite.
         private static PositionsGpsController CreerControleur(GeoTrackContext context)
-            => new(context, new GeofencingService(), new StubNotificateurZone(),
-                NullLogger<PositionsGpsController>.Instance);
+            => FabriqueControleurPositions.Creer(context);
 
         private static PositionGps CreerPositionValide() => new()
         {

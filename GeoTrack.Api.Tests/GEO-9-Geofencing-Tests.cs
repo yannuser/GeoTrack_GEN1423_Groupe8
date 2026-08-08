@@ -540,8 +540,7 @@ namespace GeoTrack.Api.Tests
             await AjouterZoneAsync(context);
 
             var notificateur = new StubNotificateur();
-            var controleur = new PositionsGpsController(context, new GeofencingService(), notificateur,
-                NullLogger<PositionsGpsController>.Instance);
+            var controleur = FabriqueControleurPositions.Creer(context, notificateurZone: notificateur);
 
             var depart = new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc);
 
@@ -566,8 +565,7 @@ namespace GeoTrack.Api.Tests
             await AjouterZoneAsync(context);
 
             var notificateur = new StubNotificateur();
-            var controleur = new PositionsGpsController(context, new GeofencingService(), notificateur,
-                NullLogger<PositionsGpsController>.Instance);
+            var controleur = FabriqueControleurPositions.Creer(context, notificateurZone: notificateur);
 
             var depart = new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc);
 
@@ -586,8 +584,7 @@ namespace GeoTrack.Api.Tests
             using var context = CreerContexteEnMemoire();
 
             var notificateur = new StubNotificateur();
-            var controleur = new PositionsGpsController(context, new GeofencingService(), notificateur,
-                NullLogger<PositionsGpsController>.Instance);
+            var controleur = FabriqueControleurPositions.Creer(context, notificateurZone: notificateur);
 
             var depart = new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc);
 
@@ -614,8 +611,7 @@ namespace GeoTrack.Api.Tests
             await context.SaveChangesAsync();
 
             var notificateur = new StubNotificateur();
-            var controleur = new PositionsGpsController(context, new GeofencingService(), notificateur,
-                NullLogger<PositionsGpsController>.Instance);
+            var controleur = FabriqueControleurPositions.Creer(context, notificateurZone: notificateur);
 
             var depart = new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc);
 
@@ -632,8 +628,7 @@ namespace GeoTrack.Api.Tests
             await AjouterZoneAsync(context);
 
             var notificateur = new StubNotificateur();
-            var controleur = new PositionsGpsController(context, new GeofencingService(), notificateur,
-                NullLogger<PositionsGpsController>.Instance);
+            var controleur = FabriqueControleurPositions.Creer(context, notificateurZone: notificateur);
 
             var invalide = PositionA(45.4236, -75.7009, new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc));
             invalide.VehiculeId = string.Empty;

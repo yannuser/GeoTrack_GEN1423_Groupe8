@@ -93,10 +93,33 @@ builder.Services.AddScoped<VehiculeService>();
 // vie plus courte.
 builder.Services.AddScoped<GeofencingService>();
 
-// Suite donnee a une sortie de zone. Journalisation uniquement pour l'instant :
-// le chantier GEO-58 (stockage centralise des alertes) n'aura qu'a substituer
-// une autre implementation ICI, sans toucher aux appelants.
-builder.Services.AddScoped<INotificateurAlerteZone, NotificateurAlerteZoneJournal>();
+// GEO-58 : la sortie de zone est desormais journalisee ET consignee dans la
+// table Alertes. NotificateurAlerteZoneJournal reste disponible comme repli
+// purement journalisant : il suffit de le resubstituer sur cette ligne.
+builder.Services.AddScoped<INotificateurAlerteZone, NotificateurAlerteZonePersistant>();
+
+// ---------------------------------------------------------------------------
+// GEO-51 / GEO-58 : surveillance de la vitesse
+// ---------------------------------------------------------------------------
+
+// Seuils par defaut (55 / 60 / 75 km/h, anti-spam 5 min...) portes par la classe
+// elle-meme. Surchargeables par configuration via la section "SeuilsVitesse".
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection("SeuilsVitesse").Get<ConfigurationSeuil>()
+    ?? new ConfigurationSeuil());
+
+// Singleton OBLIGATOIRE, pour la meme raison que ResilienceService : le service
+// porte en memoire la machine a etats de chaque appareil (echantillons
+// consecutifs, fenetres anti-spam, compteurs horaire et journalier). En Scoped,
+// chaque requete repartirait d'un contexte vierge : le passage EnObservation ->
+// Declenchee, qui exige plusieurs mesures consecutives, ne surviendrait jamais
+// et l'anti-spam serait inoperant. Son dictionnaire interne est concurrent.
+builder.Services.AddSingleton<AlerteVitesseService>();
+
+// Consomme par AlerteVitesseService. Singleton lui aussi : un Singleton ne peut
+// pas dependre d'un service Scoped (dependance captive, rejetee au demarrage).
+// Cette implementation ne depend que d'ILogger, donc aucun probleme.
+builder.Services.AddSingleton<INotificationService, NotificationServiceJournal>();
 
 var optionsJwt = builder.Configuration.GetSection(OptionsJwt.Section).Get<OptionsJwt>() ?? new OptionsJwt();
 
